@@ -1,0 +1,677 @@
+@import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
+
+.quest-review-page {
+  --quest-background: #fbfaf7;
+  --quest-paper: #fffdf7;
+  --quest-surface: #ffffff;
+  --quest-border: #e6e2da;
+  --quest-border-strong: #d6cec0;
+  --quest-text: #1c1c1a;
+  --quest-text-soft: #6f6c65;
+  --quest-text-light: #99958d;
+  --quest-orange: #de9729;
+  --quest-orange-soft: #fff2d8;
+  --quest-green: #578f61;
+  --quest-green-soft: #eaf3e8;
+  --quest-red: #a85b52;
+  --quest-red-soft: #fff0ee;
+
+  min-height: 100vh;
+  padding: 42px 24px 80px;
+  background:
+    radial-gradient(
+      circle at 12% 0%,
+      rgba(235, 217, 181, 0.25),
+      transparent 28%
+    ),
+    var(--quest-background);
+  color: var(--quest-text);
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+.quest-review-page *,
+.quest-review-page *::before,
+.quest-review-page *::after {
+  box-sizing: border-box;
+}
+
+.quest-review-page button,
+.quest-review-page input,
+.quest-review-page textarea,
+.quest-review-page select {
+  font: inherit;
+}
+
+.quest-review-container {
+  width: min(100%, 1050px);
+  margin: 0 auto;
+}
+
+.quest-review-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 42px;
+}
+
+.quest-review-topbar a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--quest-text-soft);
+  font-size: 13px;
+  text-decoration: none;
+  transition:
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+.quest-review-topbar a:hover {
+  color: var(--quest-text);
+  transform: translateX(-2px);
+}
+
+.quest-review-topbar > span {
+  color: var(--quest-text-light);
+  font-size: 11px;
+}
+
+.quest-review-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 38px;
+}
+
+.quest-review-heading-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  background: rgba(255, 253, 247, 0.94);
+  color: #a77a39;
+  border: 1px solid #e4d7c1;
+  border-radius: 14px;
+  box-shadow: 0 8px 22px rgba(68, 57, 38, 0.07);
+}
+
+.quest-review-eyebrow {
+  display: block;
+  margin: 1px 0 8px;
+  color: #a77938;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.quest-review-heading h1 {
+  margin: 0;
+  font-family: 'Gowun Batang', Georgia, serif;
+  font-size: clamp(32px, 4vw, 45px);
+  line-height: 1.2;
+}
+
+.quest-review-heading p {
+  margin: 15px 0 0;
+  color: var(--quest-text-soft);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.quest-source-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  margin-bottom: 16px;
+  padding: 22px 24px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--quest-border);
+  border-radius: 12px;
+  box-shadow: 0 5px 18px rgba(46, 42, 33, 0.04);
+}
+
+.quest-source-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.quest-source-content > span {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  background: var(--quest-orange-soft);
+  color: #966318;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.quest-source-content > div {
+  min-width: 0;
+}
+
+.quest-source-content strong {
+  display: block;
+  margin-bottom: 6px;
+  font-family: 'Gowun Batang', Georgia, serif;
+  font-size: 18px;
+}
+
+.quest-source-content p {
+  margin: 0;
+  overflow: hidden;
+  color: var(--quest-text-soft);
+  font-size: 11px;
+  line-height: 1.6;
+  text-overflow: ellipsis;
+}
+
+.quest-source-card > img,
+.quest-source-no-image {
+  display: block;
+  flex: 0 0 auto;
+  width: 78px;
+  height: 62px;
+  object-fit: cover;
+  background: #f1efe9;
+  border: 1px solid var(--quest-border);
+  border-radius: 8px;
+}
+
+.quest-source-no-image {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--quest-text-light);
+}
+
+.quest-generator-notice {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  background: rgba(255, 242, 216, 0.72);
+  color: #8e641f;
+  border: 1px solid #efd9af;
+  border-radius: 9px;
+}
+
+.quest-generator-notice > svg {
+  flex: 0 0 auto;
+}
+
+.quest-generator-notice > div {
+  display: grid;
+  gap: 3px;
+}
+
+.quest-generator-notice strong {
+  font-size: 12px;
+}
+
+.quest-generator-notice span {
+  color: #a68146;
+  font-size: 10px;
+}
+
+.quest-question-list {
+  display: grid;
+  gap: 20px;
+}
+
+.quest-question-card {
+  overflow: hidden;
+  background:
+    linear-gradient(
+      rgba(255, 254, 250, 0.96),
+      rgba(255, 254, 250, 0.96)
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 27px,
+      rgba(207, 196, 171, 0.12) 28px
+    );
+  border: 1px solid var(--quest-border);
+  border-radius: 12px;
+  box-shadow: 0 5px 20px rgba(46, 42, 33, 0.045);
+}
+
+.quest-question-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 17px 22px;
+  background: rgba(247, 244, 237, 0.72);
+  border-bottom: 1px solid var(--quest-border);
+}
+
+.quest-question-header > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.quest-question-header > div:first-child > svg {
+  color: #a77a39;
+}
+
+.quest-question-header > div:first-child > strong {
+  font-size: 12px;
+}
+
+.quest-question-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+  background: #1d1d1b;
+  color: #ffffff;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.quest-question-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.quest-question-header-actions select {
+  min-height: 36px;
+  padding: 0 30px 0 11px;
+  background: #ffffff;
+  color: var(--quest-text-soft);
+  border: 1px solid var(--quest-border-strong);
+  border-radius: 7px;
+  outline: none;
+  font-size: 11px;
+}
+
+.quest-question-header-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  color: #9e9a92;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.quest-question-header-actions button:hover {
+  background: var(--quest-red-soft);
+  color: var(--quest-red);
+  border-color: #efd3ce;
+}
+
+.quest-question-fields {
+  display: grid;
+  gap: 19px;
+  padding: 25px 28px 29px;
+}
+
+.quest-review-field {
+  display: grid;
+  gap: 8px;
+}
+
+.quest-review-field > span,
+.quest-options-editor > span {
+  color: #514f49;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.quest-review-field input,
+.quest-review-field textarea,
+.quest-review-field select,
+.quest-options-editor input {
+  width: 100%;
+  color: var(--quest-text);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--quest-border-strong);
+  border-radius: 8px;
+  outline: none;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.quest-review-field input,
+.quest-review-field select,
+.quest-options-editor input {
+  height: 46px;
+  padding: 0 13px;
+}
+
+.quest-review-field textarea {
+  min-height: 105px;
+  padding: 13px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.quest-review-field input:focus,
+.quest-review-field textarea:focus,
+.quest-review-field select:focus,
+.quest-options-editor input:focus {
+  background: #ffffff;
+  border-color: #c69a55;
+  box-shadow: 0 0 0 3px rgba(198, 154, 85, 0.12);
+}
+
+.quest-options-editor {
+  display: grid;
+  gap: 10px;
+  padding: 17px;
+  background: rgba(247, 244, 237, 0.74);
+  border: 1px solid var(--quest-border);
+  border-radius: 9px;
+}
+
+.quest-options-editor > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.quest-options-editor label {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.quest-options-editor label strong {
+  position: absolute;
+  left: 11px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 23px;
+  height: 23px;
+  background: #efede7;
+  color: var(--quest-text-soft);
+  border-radius: 50%;
+  font-size: 10px;
+  pointer-events: none;
+}
+
+.quest-options-editor input {
+  padding-left: 43px;
+}
+
+.quest-add-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--quest-text-soft);
+  border: 1px dashed var(--quest-border-strong);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition:
+    color 150ms ease,
+    background 150ms ease,
+    border-color 150ms ease;
+}
+
+.quest-add-button span {
+  margin-left: 3px;
+  color: var(--quest-text-light);
+  font-size: 10px;
+}
+
+.quest-add-button:hover:not(:disabled) {
+  background: var(--quest-orange-soft);
+  color: #95651c;
+  border-color: #d8b77f;
+}
+
+.quest-add-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.quest-review-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 14px 17px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.quest-review-message.is-success {
+  background: var(--quest-green-soft);
+  color: #42764a;
+  border: 1px solid #cfe4cc;
+}
+
+.quest-review-message.is-error {
+  background: var(--quest-red-soft);
+  color: var(--quest-red);
+  border: 1px solid #f0d2cd;
+}
+
+.quest-review-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 11px;
+  padding-top: 23px;
+}
+
+.quest-review-actions a,
+.quest-review-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.quest-review-actions a {
+  padding: 0 25px;
+  background: #ffffff;
+  color: var(--quest-text-soft);
+  border: 1px solid var(--quest-border);
+  text-decoration: none;
+}
+
+.quest-review-actions a:hover {
+  color: var(--quest-text);
+  border-color: var(--quest-border-strong);
+}
+
+.quest-review-actions button {
+  gap: 8px;
+  padding: 0 27px;
+  background: linear-gradient(180deg, #292927, #171716);
+  color: #ffffff;
+  border: 0;
+  box-shadow: 0 5px 14px rgba(20, 20, 19, 0.18);
+  cursor: pointer;
+  transition:
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.quest-review-actions button:hover {
+  box-shadow: 0 8px 18px rgba(20, 20, 19, 0.23);
+  transform: translateY(-1px);
+}
+
+
+.quest-review-actions .quest-start-button {
+  gap: 8px;
+  padding: 0 25px;
+  background: linear-gradient(180deg, #c48628, #a56b16);
+  color: #ffffff;
+  border-color: #a56b16;
+  box-shadow: 0 5px 14px rgba(165, 107, 22, 0.2);
+  transition:
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.quest-review-actions .quest-start-button:hover {
+  color: #ffffff;
+  border-color: #a56b16;
+  box-shadow: 0 8px 18px rgba(165, 107, 22, 0.27);
+  transform: translateY(-1px);
+}
+
+
+.quest-review-empty {
+  display: grid;
+  place-items: center;
+  width: min(100%, 620px);
+  margin: 100px auto 0;
+  padding: 65px 25px;
+  background: var(--quest-paper);
+  border: 1px solid var(--quest-border);
+  border-radius: 13px;
+  text-align: center;
+}
+
+.quest-review-empty svg {
+  color: #a77a39;
+}
+
+.quest-review-empty h1 {
+  margin: 20px 0 7px;
+  font-family: 'Gowun Batang', Georgia, serif;
+  font-size: 26px;
+}
+
+.quest-review-empty p {
+  margin: 0 0 25px;
+  color: var(--quest-text-light);
+  font-size: 12px;
+}
+
+.quest-review-empty a {
+  padding: 12px 17px;
+  background: #1d1d1b;
+  color: #ffffff;
+  border-radius: 7px;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+@media (max-width: 700px) {
+  .quest-review-page {
+    padding: 28px 17px 60px;
+  }
+
+  .quest-review-topbar {
+    margin-bottom: 31px;
+  }
+
+  .quest-review-topbar > span {
+    display: none;
+  }
+
+  .quest-review-heading {
+    gap: 13px;
+  }
+
+  .quest-review-heading-icon {
+    width: 47px;
+    height: 47px;
+  }
+
+  .quest-review-heading h1 {
+    font-size: 30px;
+  }
+
+  .quest-source-card {
+    align-items: flex-start;
+    padding: 18px;
+  }
+
+  .quest-source-content {
+    align-items: flex-start;
+  }
+
+  .quest-source-card > img,
+  .quest-source-no-image {
+    width: 62px;
+    height: 58px;
+  }
+
+  .quest-generator-notice {
+    align-items: flex-start;
+  }
+
+  .quest-question-header {
+    align-items: flex-start;
+    padding: 15px 17px;
+  }
+
+  .quest-question-header > div:first-child {
+    padding-top: 4px;
+  }
+
+  .quest-question-header > div:first-child > svg,
+  .quest-question-header > div:first-child > strong {
+    display: none;
+  }
+
+  .quest-question-fields {
+    padding: 22px 19px 24px;
+  }
+
+  .quest-options-editor > div {
+    grid-template-columns: 1fr;
+  }
+
+  .quest-review-actions {
+    display: grid;
+    grid-template-columns: 1fr 1.7fr;
+  }
+
+  .quest-review-actions a,
+  .quest-review-actions button {
+    width: 100%;
+    padding: 0 12px;
+  }
+
+  .quest-review-actions .quest-start-button {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 460px) {
+  .quest-source-card > img,
+  .quest-source-no-image {
+    display: none;
+  }
+
+  .quest-question-header-actions select {
+    width: 100px;
+  }
+}
