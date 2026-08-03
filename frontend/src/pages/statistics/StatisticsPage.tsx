@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import {
   Area,
@@ -22,6 +22,10 @@ import {
 } from 'lucide-react'
 
 import './StatisticsPage.css'
+
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ??
+  'http://localhost:4000/api'
 
 type SavedStudyRecord = {
   id: number
@@ -67,21 +71,6 @@ type TooltipEntry<T> = {
 type ChartTooltipProps<T> = {
   active?: boolean
   payload?: TooltipEntry<T>[]
-}
-
-function loadSavedRecords() {
-  try {
-    const storedRecords = JSON.parse(
-      localStorage.getItem('request-study-records') ?? '[]',
-    )
-
-    return Array.isArray(storedRecords)
-      ? (storedRecords as SavedStudyRecord[])
-      : []
-  } catch (error) {
-    console.error('통계 데이터를 불러오지 못했습니다.', error)
-    return []
-  }
 }
 
 function formatNumber(value: number) {
@@ -375,9 +364,71 @@ function UnderstandingTooltip({
 }
 
 function StatisticsPage() {
-  const [records] = useState<SavedStudyRecord[]>(
-    loadSavedRecords,
-  )
+  const [records, setRecords] = useState<
+    SavedStudyRecord[]
+  >([])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadSavedRecords() {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/study-records`,
+          { signal: controller.signal },
+        )
+        const result = (await response.json()) as {
+          success: boolean
+          message?: string
+          data?: Array<
+            Omit<
+              SavedStudyRecord,
+              'id' | 'minutes' | 'understanding'
+            > & {
+              id: number | string
+              minutes: number | string
+              understanding: number | string
+            }
+          >
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.message ??
+              '통계 데이터를 불러오지 못했습니다.',
+          )
+        }
+
+        setRecords(
+          (result.data ?? []).map((record) => ({
+            ...record,
+            id: Number(record.id),
+            minutes: String(record.minutes),
+            understanding: Number(
+              record.understanding,
+            ),
+          })),
+        )
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name === 'AbortError'
+        ) {
+          return
+        }
+
+        console.error(
+          '통계 데이터를 불러오지 못했습니다.',
+          error,
+        )
+        setRecords([])
+      }
+    }
+
+    void loadSavedRecords()
+
+    return () => controller.abort()
+  }, [])
 
   const recentStatistics = useMemo(
     () => createRecentDailyStatistics(records, 14),

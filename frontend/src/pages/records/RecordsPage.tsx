@@ -17,6 +17,18 @@ import {
 
 import './RecordsPage.css'
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ??
+  'http://localhost:4000/api'
+
+type SaveStudyRecordResponse = {
+  success: boolean
+  message?: string
+  data?: {
+    id: string | number
+  }
+}
+
 const understandingLevels = [
   { value: 1, label: '어려워요' },
   { value: 2, label: '조금 어려워요' },
@@ -27,7 +39,8 @@ const understandingLevels = [
 
 function getToday() {
   const today = new Date()
-  const timezoneOffset = today.getTimezoneOffset() * 60_000
+  const timezoneOffset =
+    today.getTimezoneOffset() * 60_000
 
   return new Date(today.getTime() - timezoneOffset)
     .toISOString()
@@ -45,19 +58,21 @@ function RecordsPage() {
     keywords: '',
   })
 
-  const [understanding, setUnderstanding] = useState(3)
+  const [understanding, setUnderstanding] =
+    useState(3)
 
   const [saveStatus, setSaveStatus] = useState<
     'idle' | 'saved' | 'error'
   >('idle')
 
-  const [savedRecordId, setSavedRecordId] = useState<
-    number | null
-  >(null)
+  const [savedRecordId, setSavedRecordId] =
+    useState<number | null>(null)
 
   const handleChange = (
     event: ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+      | HTMLInputElement
+      | HTMLSelectElement
+      | HTMLTextAreaElement
     >,
   ) => {
     const { name, value } = event.target
@@ -71,36 +86,48 @@ function RecordsPage() {
     setSavedRecordId(null)
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
     event.preventDefault()
 
-    const newRecordId = Date.now()
-
-    const newRecord = {
-      id: newRecordId,
-      ...record,
-      understanding,
-      createdAt: new Date().toISOString(),
-    }
+    setSaveStatus('idle')
+    setSavedRecordId(null)
 
     try {
-      const savedRecords = JSON.parse(
-        localStorage.getItem('request-study-records') ?? '[]',
+      const response = await fetch(
+        `${API_BASE_URL}/study-records`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...record,
+            minutes: Number(record.minutes),
+            understanding,
+          }),
+        },
       )
 
-      const previousRecords = Array.isArray(savedRecords)
-        ? savedRecords
-        : []
+      const result =
+        (await response.json()) as SaveStudyRecordResponse
 
-      localStorage.setItem(
-        'request-study-records',
-        JSON.stringify([...previousRecords, newRecord]),
-      )
+      if (
+        !response.ok ||
+        !result.success ||
+        !result.data
+      ) {
+        throw new Error(
+          result.message ??
+            '학습 기록 저장에 실패했습니다.',
+        )
+      }
 
-      setSavedRecordId(newRecordId)
+      setSavedRecordId(Number(result.data.id))
       setSaveStatus('saved')
     } catch (error) {
-      console.error('학습 기록을 저장하지 못했습니다.', error)
+      console.error('학습 기록 저장 실패:', error)
 
       setSavedRecordId(null)
       setSaveStatus('error')
@@ -111,7 +138,10 @@ function RecordsPage() {
     <main className="records-page">
       <div className="records-container">
         <div className="records-topbar">
-          <Link className="records-back-link" to="/">
+          <Link
+            className="records-back-link"
+            to="/"
+          >
             <ArrowLeft size={17} />
             이번 주로 돌아가기
           </Link>
@@ -134,10 +164,11 @@ function RecordsPage() {
             <h1>오늘 무엇을 공부했나요?</h1>
 
             <p>
-              오늘 배운 내용과 어려웠던 부분을 기록해
-              보세요.
+              오늘 배운 내용과 어려웠던 부분을
+              기록해 보세요.
               <br />
-              작은 기록이 나만의 복습 여정을 만듭니다.
+              작은 기록이 나만의 복습 여정을
+              만듭니다.
             </p>
           </div>
         </header>
@@ -154,8 +185,10 @@ function RecordsPage() {
 
               <div>
                 <h2>기본 학습 정보</h2>
+
                 <p>
-                  오늘 공부한 과목과 시간을 알려주세요.
+                  오늘 공부한 과목과 시간을
+                  알려주세요.
                 </p>
               </div>
             </div>
@@ -181,12 +214,33 @@ function RecordsPage() {
                   value={record.subject}
                   onChange={handleChange}
                 >
-                  <option value="수학">수학</option>
-                  <option value="국어">국어</option>
-                  <option value="영어">영어</option>
-                  <option value="과학">과학</option>
-                  <option value="사회">사회</option>
-                  <option value="기타">기타</option>
+                  <option value="수학">
+                    수학
+                  </option>
+
+                  <option value="국어">
+                    국어
+                  </option>
+
+                  <option value="영어">
+                    영어
+                  </option>
+
+                  <option value="과학">
+                    과학
+                  </option>
+
+                  <option value="사회">
+                    사회
+                  </option>
+
+                  <option value="프로그래밍">
+                    프로그래밍
+                  </option>
+
+                  <option value="기타">
+                    기타
+                  </option>
                 </select>
               </label>
 
@@ -235,8 +289,8 @@ function RecordsPage() {
                 <h2>학습 내용 정리</h2>
 
                 <p>
-                  완벽한 문장보다 나중에 알아볼 수 있는
-                  기록이 중요해요.
+                  완벽한 문장보다 나중에 알아볼
+                  수 있는 기록이 중요해요.
                 </p>
               </div>
             </div>
@@ -282,7 +336,8 @@ function RecordsPage() {
                 />
 
                 <small>
-                  키워드는 쉼표로 구분해서 작성해 주세요.
+                  키워드는 쉼표로 구분해서 작성해
+                  주세요.
                 </small>
               </label>
             </div>
@@ -296,35 +351,42 @@ function RecordsPage() {
 
               <div>
                 <h2>오늘의 이해도</h2>
+
                 <p>
-                  공부를 마친 지금의 느낌을 선택해 주세요.
+                  공부를 마친 지금의 느낌을
+                  선택해 주세요.
                 </p>
               </div>
             </div>
 
             <div className="understanding-levels">
-              {understandingLevels.map((level) => (
-                <button
-                  type="button"
-                  className={`understanding-button ${
-                    understanding === level.value
-                      ? 'is-selected'
-                      : ''
-                  }`}
-                  key={level.value}
-                  onClick={() => {
-                    setUnderstanding(level.value)
-                    setSaveStatus('idle')
-                    setSavedRecordId(null)
-                  }}
-                  aria-pressed={
-                    understanding === level.value
-                  }
-                >
-                  <strong>{level.value}</strong>
-                  <span>{level.label}</span>
-                </button>
-              ))}
+              {understandingLevels.map(
+                (level) => (
+                  <button
+                    type="button"
+                    className={`understanding-button ${
+                      understanding === level.value
+                        ? 'is-selected'
+                        : ''
+                    }`}
+                    key={level.value}
+                    onClick={() => {
+                      setUnderstanding(level.value)
+                      setSaveStatus('idle')
+                      setSavedRecordId(null)
+                    }}
+                    aria-pressed={
+                      understanding === level.value
+                    }
+                  >
+                    <strong>
+                      {level.value}
+                    </strong>
+
+                    <span>{level.label}</span>
+                  </button>
+                ),
+              )}
             </div>
           </section>
 
@@ -338,8 +400,8 @@ function RecordsPage() {
                 </strong>
 
                 <span>
-                  틀린 문제가 있었다면 오답 노트도 이어서
-                  작성할 수 있어요.
+                  틀린 문제가 있었다면 오답
+                  노트도 이어서 작성할 수 있어요.
                 </span>
               </div>
             </div>
@@ -347,13 +409,14 @@ function RecordsPage() {
 
           {saveStatus === 'error' && (
             <div className="record-message is-error">
-              기록을 저장하지 못했습니다. 다시 시도해
-              주세요.
+              기록을 저장하지 못했습니다. 다시
+              시도해 주세요.
             </div>
           )}
 
           <div className="record-actions">
-            {saveStatus === 'saved' && savedRecordId ? (
+            {saveStatus === 'saved' &&
+            savedRecordId ? (
               <>
                 <Link
                   className="record-cancel-button"

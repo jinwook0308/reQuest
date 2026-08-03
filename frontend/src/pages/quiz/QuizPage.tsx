@@ -1,5 +1,12 @@
-import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import {
+  useEffect,
+  useState,
+} from 'react'
+import {
+  Link,
+  useNavigate,
+  useParams,
+} from 'react-router'
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,6 +23,14 @@ import {
 
 import './QuizPage.css'
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ??
+  'http://localhost:4000/api'
+
+type SourceType =
+  | 'study-record'
+  | 'wrong-note'
+
 type QuestionKind =
   | 'multiple-choice'
   | 'ox'
@@ -27,313 +42,394 @@ type ReviewQuestion = {
   concept: string
   prompt: string
   options: string[]
-  answer: string
-  explanation: string
 }
 
-type SavedQuestSet = {
-  recordId: number
+type QuestSet = {
+  id: number
+  sourceType: SourceType
+  sourceId: number
   status: 'reviewed'
   questions: ReviewQuestion[]
   updatedAt: string
 }
 
-type SavedStudyRecord = {
+type SourceRecord = {
   id: number
-  date: string
   subject: string
   unit: string
-  minutes: string
-  learned: string
-  difficult: string
-  keywords: string
-  understanding: number
-  questStatus?: string
 }
 
-
-type SavedWrongNote = {
-  id: number
-  date: string
-  subject: string
-  unit: string
-  questStatus: string
-}
-
-
-type QuizMode = 'original' | 'retry'
+type QuizMode =
+  | 'original'
+  | 'retry'
 
 type QuizAnswerResult = {
   questionId: number
   userAnswer: string
-  correctAnswer: string
+}
+
+type GradeResult = {
+  questionId: number
   isCorrect: boolean
+  correctAnswer: string
+  explanation: string
 }
 
-type QuizAttempt = {
-  id: number
-  recordId: number
-  sourceType: 'study-record' | 'wrong-note'
-  answers: QuizAnswerResult[]
-  correctCount: number
-  totalCount: number
-  status: 'completed' | 'retry-required'
-  mode: QuizMode
-  retryRound: number
-  completedAt: string
+type ApiResponse<T> = {
+  success: boolean
+  message?: string
+  data?: T
 }
 
-const questionTypeLabels: Record<QuestionKind, string> = {
+type QuestSetApiItem = {
+  id: number | string
+  sourceType: SourceType
+  sourceId: number | string
+  status: 'reviewed'
+  questions: ReviewQuestion[]
+  updatedAt: string
+}
+
+type SourceApiItem = {
+  id: number | string
+  subject: string
+  unit: string
+}
+
+const questionTypeLabels: Record<
+  QuestionKind,
+  string
+> = {
   'multiple-choice': '객관식',
   ox: 'OX',
   'short-answer': '단답형',
 }
 
-function loadQuestSet(
-  recordId: string | undefined,
-): SavedQuestSet | null {
-  if (!recordId) {
-    return null
-  }
-
-  try {
-    const storedQuestSets = JSON.parse(
-      localStorage.getItem('request-review-quests') ?? '[]',
-    )
-
-    if (!Array.isArray(storedQuestSets)) {
-      return null
-    }
-
-    return (
-      storedQuestSets.find(
-        (questSet: SavedQuestSet) =>
-          String(questSet.recordId) === recordId,
-      ) ?? null
-    )
-  } catch (error) {
-    console.error('복습 문제를 불러오지 못했습니다.', error)
-    return null
-  }
-}
-
-function loadRecord(
-  recordId: string | undefined,
-): SavedStudyRecord | null {
-  if (!recordId) {
-    return null
-  }
-
-
-  try {
-    const storedRecords = JSON.parse(
-      localStorage.getItem('request-study-records') ?? '[]',
-    )
-
-    if (!Array.isArray(storedRecords)) {
-      return null
-    }
-
-    return (
-      storedRecords.find(
-        (record: SavedStudyRecord) =>
-          String(record.id) === recordId,
-      ) ?? null
-    )
-  } catch (error) {
-    console.error('학습 기록을 불러오지 못했습니다.', error)
-    return null
-  }
-}
-
-
-function loadWrongNoteAsRecord(
-  wrongNoteId: string | undefined,
-): SavedStudyRecord | null {
-  if (!wrongNoteId) {
-    return null
-  }
-
-  try {
-    const storedWrongNotes = JSON.parse(
-      localStorage.getItem('request-wrong-notes') ?? '[]',
-    )
-
-    if (!Array.isArray(storedWrongNotes)) {
-      return null
-    }
-
-    const wrongNote = storedWrongNotes.find(
-      (savedWrongNote: SavedWrongNote) =>
-        String(savedWrongNote.id) === wrongNoteId,
-    ) as SavedWrongNote | undefined
-
-    if (!wrongNote) {
-      return null
-    }
-
-    return {
-      id: wrongNote.id,
-      date: wrongNote.date,
-      subject: wrongNote.subject,
-      unit: wrongNote.unit,
-      minutes: '0',
-      learned: '',
-      difficult: '',
-      keywords: '',
-      understanding: 0,
-      questStatus: wrongNote.questStatus,
-    }
-  } catch (error) {
-    console.error('오답 노트를 불러오지 못했습니다.', error)
-    return null
-  }
-}
-
-
-
-
-function normalizeAnswer(answer: string) {
-  return answer
-    .trim()
-    .toLowerCase()
-    .replace(/[.,!?'"()[\]{}]/g, '')
-    .replace(/\s+/g, ' ')
-}
-
-function gradeAnswer(
-  question: ReviewQuestion,
-  userAnswer: string,
-) {
-  const normalizedUserAnswer = normalizeAnswer(userAnswer)
-  const normalizedCorrectAnswer = normalizeAnswer(
-    question.answer,
+async function loadQuestSet(
+  sourceType: SourceType,
+  sourceId: string,
+  signal: AbortSignal,
+): Promise<QuestSet> {
+  const response = await fetch(
+    `${API_BASE_URL}/review-quests/${sourceType}/${sourceId}/quiz`,
+    { signal },
   )
 
-  if (!normalizedUserAnswer) {
-    return false
+  const result =
+    (await response.json()) as ApiResponse<QuestSetApiItem>
+
+  if (
+    !response.ok ||
+    !result.success ||
+    !result.data
+  ) {
+    throw new Error(
+      result.message ??
+        '검토 완료된 복습 문제가 없습니다.',
+    )
   }
 
-  if (question.kind !== 'short-answer') {
-    return normalizedUserAnswer === normalizedCorrectAnswer
+  return {
+    id: Number(result.data.id),
+    sourceType:
+      result.data.sourceType,
+    sourceId:
+      Number(result.data.sourceId),
+    status: result.data.status,
+    questions:
+      result.data.questions,
+    updatedAt:
+      result.data.updatedAt,
   }
+}
 
-  if (normalizedUserAnswer === normalizedCorrectAnswer) {
-    return true
-  }
+async function loadSourceRecord(
+  sourceType: SourceType,
+  sourceId: string,
+  signal: AbortSignal,
+): Promise<SourceRecord> {
+  const endpoint =
+    sourceType === 'wrong-note'
+      ? `/wrong-notes/${sourceId}`
+      : `/study-records/${sourceId}`
 
-  const correctKeywords = normalizedCorrectAnswer
-    .split(' ')
-    .filter((keyword) => keyword.length >= 2)
-
-  if (correctKeywords.length === 0) {
-    return false
-  }
-
-  const matchedKeywordCount = correctKeywords.filter(
-    (keyword) => normalizedUserAnswer.includes(keyword),
-  ).length
-
-  return (
-    matchedKeywordCount / correctKeywords.length >= 0.6
+  const response = await fetch(
+    `${API_BASE_URL}${endpoint}`,
+    { signal },
   )
+
+  const result =
+    (await response.json()) as ApiResponse<SourceApiItem>
+
+  if (
+    !response.ok ||
+    !result.success ||
+    !result.data
+  ) {
+    throw new Error(
+      result.message ??
+        '학습 자료를 불러오지 못했습니다.',
+    )
+  }
+
+  return {
+    id: Number(result.data.id),
+    subject: result.data.subject,
+    unit: result.data.unit,
+  }
 }
 
 function createRetryQuestions(
-  incorrectQuestions: ReviewQuestion[],
+  incorrectQuestions:
+    ReviewQuestion[],
   retryRound: number,
 ) {
-  const createdTime = Date.now()
+  return incorrectQuestions.map(
+    (question) => {
+      const retryTitle =
+        `[변형 복습 ${retryRound}회차]`
 
-  return incorrectQuestions.map((question, index) => {
-    const retryTitle = `[변형 복습 ${retryRound}회차]`
+      if (
+        question.kind ===
+        'multiple-choice'
+      ) {
+        return {
+          ...question,
+          kind:
+            'short-answer' as QuestionKind,
+          prompt:
+            `${retryTitle}\n선택지 없이 정답을 직접 입력해 보세요.\n\n${question.prompt}`,
+          options: [],
+        }
+      }
 
-    if (question.kind === 'multiple-choice') {
+      if (question.kind === 'ox') {
+        return {
+          ...question,
+          kind:
+            'multiple-choice' as QuestionKind,
+          prompt:
+            `${retryTitle}\n다음 진술이 맞는지 판단해 보세요.\n\n${question.prompt}`,
+          options: ['O', 'X'],
+        }
+      }
+
       return {
         ...question,
-        id: createdTime + index,
-        kind: 'short-answer' as QuestionKind,
-        prompt: `${retryTitle}\n선택지 없이 정답을 직접 입력해 보세요.\n\n${question.prompt}`,
+        kind:
+          'short-answer' as QuestionKind,
+        prompt:
+          `${retryTitle}\n같은 개념을 다른 표현으로 다시 설명해 보세요.\n\n${question.prompt}`,
         options: [],
       }
-    }
-
-    if (question.kind === 'ox') {
-      return {
-        ...question,
-        id: createdTime + index,
-        kind: 'multiple-choice' as QuestionKind,
-        prompt: `${retryTitle}\n다음 진술이 맞는지 판단해 보세요.\n\n${question.prompt}`,
-        options: ['O', 'X'],
-      }
-    }
-
-    return {
-      ...question,
-      id: createdTime + index,
-      kind: 'short-answer' as QuestionKind,
-      prompt: `${retryTitle}\n같은 개념을 다른 표현으로 다시 설명해 보세요.\n\n${question.prompt}`,
-      options: [],
-    }
-  })
+    },
+  )
 }
 
 function QuizPage() {
-  const { recordId, wrongNoteId } = useParams()
+  const {
+    recordId,
+    wrongNoteId,
+  } = useParams()
+
   const navigate = useNavigate()
 
-  const isWrongNoteSource = Boolean(wrongNoteId)
-  const sourceId = wrongNoteId ?? recordId
+  const isWrongNoteSource =
+    Boolean(wrongNoteId)
 
-  const [questSet] = useState<SavedQuestSet | null>(() =>
-    loadQuestSet(sourceId),
-  )
-
-  const [record] = useState<SavedStudyRecord | null>(() =>
+  const sourceType: SourceType =
     isWrongNoteSource
-      ? loadWrongNoteAsRecord(wrongNoteId)
-      : loadRecord(recordId),
-  )
-  const [quizQuestions, setQuizQuestions] = useState<
-    ReviewQuestion[]
-  >(() => questSet?.questions ?? [])
+      ? 'wrong-note'
+      : 'study-record'
+
+  const sourceId =
+    wrongNoteId ?? recordId
+
+  const [questSet, setQuestSet] =
+    useState<QuestSet | null>(null)
+
+  const [record, setRecord] =
+    useState<SourceRecord | null>(
+      null,
+    )
+
+  const [
+    quizQuestions,
+    setQuizQuestions,
+  ] = useState<ReviewQuestion[]>([])
+
+  const [isLoading, setIsLoading] =
+    useState(true)
+
+  const [loadError, setLoadError] =
+    useState('')
+
+  const [
+    isSavingAttempt,
+    setIsSavingAttempt,
+  ] = useState(false)
+
+  const [isGrading, setIsGrading] =
+    useState(false)
 
   const [quizMode, setQuizMode] =
     useState<QuizMode>('original')
 
-  const [retryRound, setRetryRound] = useState(0)
-
-  const [currentQuestionIndex, setCurrentQuestionIndex] =
+  const [retryRound, setRetryRound] =
     useState(0)
 
-  const [userAnswers, setUserAnswers] = useState<
+  const [
+    currentQuestionIndex,
+    setCurrentQuestionIndex,
+  ] = useState(0)
+
+  const [
+    userAnswers,
+    setUserAnswers,
+  ] = useState<
     Record<number, string>
   >({})
 
-  const [gradedResults, setGradedResults] = useState<
-    Record<number, boolean>
+  const [
+    gradedResults,
+    setGradedResults,
+  ] = useState<
+    Record<number, GradeResult>
   >({})
 
-  const [message, setMessage] = useState('')
-  const [isFinished, setIsFinished] = useState(false)
+  const [message, setMessage] =
+    useState('')
 
-  if (!questSet || quizQuestions.length === 0) {
+  const [isFinished, setIsFinished] =
+    useState(false)
+
+  useEffect(() => {
+    const controller =
+      new AbortController()
+
+    const loadQuiz = async () => {
+      if (!sourceId) {
+        setLoadError(
+          '퀴즈 주소가 올바르지 않습니다.',
+        )
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        setIsLoading(true)
+        setLoadError('')
+
+        const [
+          loadedQuestSet,
+          loadedRecord,
+        ] = await Promise.all([
+          loadQuestSet(
+            sourceType,
+            sourceId,
+            controller.signal,
+          ),
+
+          loadSourceRecord(
+            sourceType,
+            sourceId,
+            controller.signal,
+          ),
+        ])
+
+        if (
+          controller.signal.aborted
+        ) {
+          return
+        }
+
+        setQuestSet(
+          loadedQuestSet,
+        )
+
+        setRecord(loadedRecord)
+
+        setQuizQuestions(
+          loadedQuestSet.questions,
+        )
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name === 'AbortError'
+        ) {
+          return
+        }
+
+        console.error(
+          '퀴즈 조회 실패:',
+          error,
+        )
+
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : '복습 문제를 불러오지 못했습니다.',
+        )
+      } finally {
+        if (
+          !controller.signal.aborted
+        ) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void loadQuiz()
+
+    return () => {
+      controller.abort()
+    }
+  }, [sourceId, sourceType])
+
+  if (isLoading) {
     return (
       <main className="quiz-page">
         <section className="quiz-empty">
           <BookOpen size={31} />
 
-          <h1>검토 완료된 복습 문제가 없어요.</h1>
+          <h1>
+            복습 문제를 불러오는
+            중이에요.
+          </h1>
+
+          <p>잠시만 기다려 주세요.</p>
+        </section>
+      </main>
+    )
+  }
+
+  if (
+    loadError ||
+    !questSet ||
+    !record ||
+    !sourceId ||
+    quizQuestions.length === 0
+  ) {
+    return (
+      <main className="quiz-page">
+        <section className="quiz-empty">
+          <BookOpen size={31} />
+
+          <h1>
+            검토 완료된 복습 문제가
+            없어요.
+          </h1>
 
           <p>
-            먼저 복습 문제를 생성하고 검토해 주세요.
+            {loadError ||
+              '먼저 복습 문제를 생성하고 검토해 주세요.'}
           </p>
 
           <Link
             to={
-              recordId
-                ? `/quest-review/${recordId}`
-                : '/history'
+              isWrongNoteSource
+                ? `/quest-review/wrong-note/${sourceId}`
+                : `/quest-review/${sourceId}`
             }
           >
             문제 검토 페이지로 이동
@@ -343,151 +439,216 @@ function QuizPage() {
     )
   }
 
-  const questions = quizQuestions
-  const currentQuestion = questions[currentQuestionIndex]
+  const questions =
+    quizQuestions
+
+  const currentQuestion =
+    questions[currentQuestionIndex]
 
   const currentAnswer =
-    userAnswers[currentQuestion.id] ?? ''
+    userAnswers[
+      currentQuestion.id
+    ] ?? ''
 
   const isCurrentGraded =
-    currentQuestion.id in gradedResults
+    currentQuestion.id in
+    gradedResults
 
   const isCurrentCorrect =
-    gradedResults[currentQuestion.id] ?? false
+    gradedResults[
+      currentQuestion.id
+    ]?.isCorrect ?? false
 
-  const completedCount = Object.keys(gradedResults).length
+  const currentGradeResult =
+    gradedResults[
+      currentQuestion.id
+    ]
+
+  const completedCount =
+    Object.keys(
+      gradedResults,
+    ).length
 
   const progressPercentage =
-    (completedCount / questions.length) * 100
+    (completedCount /
+      questions.length) *
+    100
 
-  const correctCount = Object.values(gradedResults).filter(
-    Boolean,
-  ).length
+  const correctCount =
+    Object.values(
+      gradedResults,
+    ).filter(
+      (result) => result.isCorrect,
+    ).length
 
-  const handleAnswerChange = (answer: string) => {
+  const handleAnswerChange = (
+    answer: string,
+  ) => {
     if (isCurrentGraded) {
       return
     }
 
-    setUserAnswers((previousAnswers) => ({
-      ...previousAnswers,
-      [currentQuestion.id]: answer,
-    }))
-
-    setMessage('')
-  }
-
-  const handleGrade = () => {
-    if (!currentAnswer.trim()) {
-      setMessage('답을 선택하거나 입력해 주세요.')
-      return
-    }
-
-    const isCorrect = gradeAnswer(
-      currentQuestion,
-      currentAnswer,
-    )
-
-    setGradedResults((previousResults) => ({
-      ...previousResults,
-      [currentQuestion.id]: isCorrect,
-    }))
-
-    setMessage('')
-  }
-
-  const saveQuizAttempt = () => {
-    const answers: QuizAnswerResult[] = questions.map(
-      (question) => ({
-        questionId: question.id,
-        userAnswer: userAnswers[question.id] ?? '',
-        correctAnswer: question.answer,
-        isCorrect: gradedResults[question.id] ?? false,
+    setUserAnswers(
+      (previousAnswers) => ({
+        ...previousAnswers,
+        [currentQuestion.id]:
+          answer,
       }),
     )
 
-    const finalCorrectCount = answers.filter(
-      (answer) => answer.isCorrect,
-    ).length
+    setMessage('')
+  }
 
-    const attempt: QuizAttempt = {
-      id: Date.now(),
-      recordId: questSet.recordId,
-      sourceType: isWrongNoteSource
-        ? 'wrong-note'
-        : 'study-record',
-      answers,
-      correctCount: finalCorrectCount,
-      totalCount: questions.length,
-      status:
-        finalCorrectCount === questions.length
-          ? 'completed'
-          : 'retry-required',
-      mode: quizMode,
-      retryRound,
-      completedAt: new Date().toISOString(),
+  const handleGrade = async () => {
+    if (!currentAnswer.trim()) {
+      setMessage(
+        '답을 선택하거나 입력해 주세요.',
+      )
+
+      return
     }
 
     try {
-      const storedAttempts = JSON.parse(
-        localStorage.getItem('request-quiz-attempts') ?? '[]',
+      setIsGrading(true)
+      setMessage('')
+
+      const response = await fetch(
+        `${API_BASE_URL}/review-quests/${sourceType}/${sourceId}/grade`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type':
+              'application/json',
+          },
+          body: JSON.stringify({
+            questionId:
+              currentQuestion.id,
+            userAnswer:
+              currentAnswer,
+          }),
+        },
       )
 
-      const previousAttempts = Array.isArray(storedAttempts)
-        ? (storedAttempts as QuizAttempt[])
-        : []
+      const result =
+        (await response.json()) as ApiResponse<GradeResult>
 
-      localStorage.setItem(
-        'request-quiz-attempts',
-        JSON.stringify([...previousAttempts, attempt]),
+      if (
+        !response.ok ||
+        !result.success ||
+        !result.data
+      ) {
+        throw new Error(
+          result.message ??
+            '답안을 채점하지 못했습니다.',
+        )
+      }
+
+      setGradedResults(
+        (previousResults) => ({
+          ...previousResults,
+          [currentQuestion.id]:
+            result.data as GradeResult,
+        }),
       )
-
-      const sourceStorageKey = isWrongNoteSource
-        ? 'request-wrong-notes'
-        : 'request-study-records'
-
-      const storedSourceItems = JSON.parse(
-        localStorage.getItem(sourceStorageKey) ?? '[]',
-      )
-
-if (Array.isArray(storedSourceItems)) {
-  const nextSourceItems = storedSourceItems.map(
-    (
-      savedItem: SavedStudyRecord | SavedWrongNote,
-    ) =>
-      savedItem.id === questSet.recordId
-        ? {
-            ...savedItem,
-            questStatus: attempt.status,
-          }
-        : savedItem,
-  )
-
-  localStorage.setItem(
-    sourceStorageKey,
-    JSON.stringify(nextSourceItems),
-  )
-}
-
-      return true
     } catch (error) {
-      console.error('퀴즈 결과를 저장하지 못했습니다.', error)
-      setMessage('퀴즈 결과를 저장하지 못했습니다.')
-      return false
+      console.error(
+        '답안 채점 실패:',
+        error,
+      )
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : '답안을 채점하지 못했습니다.',
+      )
+    } finally {
+      setIsGrading(false)
     }
   }
 
-  const handleNext = () => {
+  const saveQuizAttempt =
+    async () => {
+      const answers: QuizAnswerResult[] =
+        questions.map(
+          (question) => ({
+            questionId:
+              question.id,
+            userAnswer:
+              userAnswers[
+                question.id
+              ] ?? '',
+          }),
+        )
+
+      try {
+        setIsSavingAttempt(true)
+
+        const response =
+          await fetch(
+            `${API_BASE_URL}/review-quests/${sourceType}/${sourceId}/attempts`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type':
+                  'application/json',
+              },
+              body: JSON.stringify({
+                answers,
+                mode: quizMode,
+              }),
+            },
+          )
+
+        const result =
+          (await response.json()) as ApiResponse<unknown>
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          throw new Error(
+            result.message ??
+              '퀴즈 결과를 저장하지 못했습니다.',
+          )
+        }
+
+        return true
+      } catch (error) {
+        console.error(
+          '퀴즈 결과 저장 실패:',
+          error,
+        )
+
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : '퀴즈 결과를 저장하지 못했습니다.',
+        )
+
+        return false
+      } finally {
+        setIsSavingAttempt(false)
+      }
+    }
+
+  const handleNext = async () => {
     if (!isCurrentGraded) {
-      setMessage('먼저 정답을 확인해 주세요.')
+      setMessage(
+        '먼저 정답을 확인해 주세요.',
+      )
+
       return
     }
 
     const isLastQuestion =
-      currentQuestionIndex === questions.length - 1
+      currentQuestionIndex ===
+      questions.length - 1
 
     if (isLastQuestion) {
-      if (saveQuizAttempt()) {
+      const saved =
+        await saveQuizAttempt()
+
+      if (saved) {
         setIsFinished(true)
       }
 
@@ -495,7 +656,8 @@ if (Array.isArray(storedSourceItems)) {
     }
 
     setCurrentQuestionIndex(
-      (previousIndex) => previousIndex + 1,
+      (previousIndex) =>
+        previousIndex + 1,
     )
 
     setMessage('')
@@ -510,39 +672,60 @@ if (Array.isArray(storedSourceItems)) {
   }
 
   const handleRestartAll = () => {
-    setQuizQuestions(questSet.questions)
+    setQuizQuestions(
+      questSet.questions,
+    )
+
     setQuizMode('original')
     setRetryRound(0)
     resetQuizState()
   }
 
   const handleRetryIncorrect = (
-    incorrectQuestions: ReviewQuestion[],
+    incorrectQuestions:
+      ReviewQuestion[],
   ) => {
-    const nextRetryRound = retryRound + 1
+    const nextRetryRound =
+      retryRound + 1
 
-    const retryQuestions = createRetryQuestions(
-      incorrectQuestions,
+    const retryQuestions =
+      createRetryQuestions(
+        incorrectQuestions,
+        nextRetryRound,
+      )
+
+    setQuizQuestions(
+      retryQuestions,
+    )
+
+    setQuizMode('retry')
+
+    setRetryRound(
       nextRetryRound,
     )
 
-    setQuizQuestions(retryQuestions)
-    setQuizMode('retry')
-    setRetryRound(nextRetryRound)
     resetQuizState()
   }
 
   if (isFinished) {
-    const incorrectQuestions = questions.filter(
-      (question) => !gradedResults[question.id],
-    )
+    const incorrectQuestions =
+      questions.filter(
+        (question) =>
+          !gradedResults[
+            question.id
+          ]?.isCorrect,
+      )
 
-    const scorePercentage = Math.round(
-      (correctCount / questions.length) * 100,
-    )
+    const scorePercentage =
+      Math.round(
+        (correctCount /
+          questions.length) *
+          100,
+      )
 
     const isFullyCompleted =
-      correctCount === questions.length
+      correctCount ===
+      questions.length
 
     return (
       <main className="quiz-page">
@@ -564,15 +747,17 @@ if (Array.isArray(storedSourceItems)) {
 
             <h1>
               {isFullyCompleted
-                ? quizMode === 'retry'
+                ? quizMode ===
+                  'retry'
                   ? '변형 복습까지 통과했어요!'
                   : '모든 개념을 통과했어요!'
                 : '틀린 문제를 변형해서 다시 풀어볼까요?'}
             </h1>
 
             <p>
-              총 {questions.length}문제 중 {correctCount}문제를
-              맞혔습니다.
+              총 {questions.length}
+              문제 중 {correctCount}
+              문제를 맞혔습니다.
             </p>
 
             <strong className="quiz-result-score">
@@ -582,40 +767,74 @@ if (Array.isArray(storedSourceItems)) {
 
             {isFullyCompleted && (
               <div className="quiz-complete-notice">
-                <CheckCircle2 size={20} />
+                <CheckCircle2
+                  size={20}
+                />
 
                 <div>
-                  <strong>학습 완료</strong>
+                  <strong>
+                    학습 완료
+                  </strong>
 
                   <span>
-                    필요한 모든 개념 문제를 통과했습니다.
+                    필요한 모든 개념
+                    문제를 통과했습니다.
                   </span>
                 </div>
               </div>
             )}
 
-            {incorrectQuestions.length > 0 && (
+            {incorrectQuestions.length >
+              0 && (
               <div className="quiz-incorrect-list">
-                <h2>다시 확인할 문제</h2>
+                <h2>
+                  다시 확인할 문제
+                </h2>
 
                 {incorrectQuestions.map(
-                  (question, questionIndex) => (
-                    <div key={question.id}>
-                      <span>{questionIndex + 1}</span>
+                  (
+                    question,
+                    questionIndex,
+                  ) => (
+                    <div
+                      key={
+                        question.id
+                      }
+                    >
+                      <span>
+                        {questionIndex +
+                          1}
+                      </span>
 
                       <div>
-                        <strong>{question.concept}</strong>
+                        <strong>
+                          {
+                            question.concept
+                          }
+                        </strong>
 
-                        <p>{question.prompt}</p>
+                        <p>
+                          {
+                            question.prompt
+                          }
+                        </p>
 
                         <small>
                           내 답:{' '}
-                          {userAnswers[question.id] ||
+                          {userAnswers[
+                            question.id
+                          ] ||
                             '입력하지 않음'}
                         </small>
 
                         <small>
-                          정답: {question.answer}
+                          정답:{' '}
+                          {
+                            gradedResults[
+                              question.id
+                            ]
+                              ?.correctAnswer
+                          }
                         </small>
                       </div>
                     </div>
@@ -625,23 +844,33 @@ if (Array.isArray(storedSourceItems)) {
             )}
 
             <div className="quiz-result-actions">
-              {incorrectQuestions.length > 0 ? (
+              {incorrectQuestions.length >
+              0 ? (
                 <button
                   type="button"
                   className="is-retry"
                   onClick={() =>
-                    handleRetryIncorrect(incorrectQuestions)
+                    handleRetryIncorrect(
+                      incorrectQuestions,
+                    )
                   }
                 >
-                  <Shuffle size={17} />
-                  틀린 문제 변형해서 다시 풀기
+                  <Shuffle
+                    size={17}
+                  />
+                  틀린 문제 변형해서
+                  다시 풀기
                 </button>
               ) : (
                 <button
                   type="button"
-                  onClick={handleRestartAll}
+                  onClick={
+                    handleRestartAll
+                  }
                 >
-                  <RotateCcw size={17} />
+                  <RotateCcw
+                    size={17}
+                  />
                   전체 문제 다시 풀기
                 </button>
               )}
@@ -652,13 +881,15 @@ if (Array.isArray(storedSourceItems)) {
                 onClick={() =>
                   navigate(
                     isWrongNoteSource
-                      ? `/wrong-notes/${questSet.recordId}`
-                      : `/history/${questSet.recordId}`,
+                      ? `/wrong-notes/${questSet.sourceId}`
+                      : `/history/${questSet.sourceId}`,
                   )
                 }
               >
                 학습 기록으로 돌아가기
-                <ArrowRight size={17} />
+                <ArrowRight
+                  size={17}
+                />
               </button>
             </div>
           </section>
@@ -674,11 +905,10 @@ if (Array.isArray(storedSourceItems)) {
           <Link
             to={
               isWrongNoteSource
-                ? `/quest-review/wrong-note/${questSet.recordId}`
-                : `/quest-review/${questSet.recordId}`
+                ? `/quest-review/wrong-note/${questSet.sourceId}`
+                : `/quest-review/${questSet.sourceId}`
             }
           >
-
             <ArrowLeft size={17} />
             문제 검토로 돌아가기
           </Link>
@@ -686,7 +916,10 @@ if (Array.isArray(storedSourceItems)) {
           <span>
             {quizMode === 'retry'
               ? `변형 복습 ${retryRound}회차`
-              : `${currentQuestionIndex + 1} / ${
+              : `${
+                  currentQuestionIndex +
+                  1
+                } / ${
                   questions.length
                 }`}
           </span>
@@ -694,7 +927,8 @@ if (Array.isArray(storedSourceItems)) {
 
         <header className="quiz-heading">
           <span className="quiz-heading-icon">
-            {quizMode === 'retry' ? (
+            {quizMode ===
+            'retry' ? (
               <Shuffle size={25} />
             ) : (
               <Sparkles size={25} />
@@ -708,7 +942,10 @@ if (Array.isArray(storedSourceItems)) {
                 : 'REVIEW QUEST'}
             </span>
 
-            <h1>{record?.unit || '복습 퀘스트'}</h1>
+            <h1>
+              {record.unit ||
+                '복습 퀘스트'}
+            </h1>
 
             <p>
               {quizMode === 'retry'
@@ -727,14 +964,16 @@ if (Array.isArray(storedSourceItems)) {
             </span>
 
             <strong>
-              {completedCount} / {questions.length} 완료
+              {completedCount} /{' '}
+              {questions.length} 완료
             </strong>
           </div>
 
           <div className="quiz-progress-track">
             <span
               style={{
-                width: `${progressPercentage}%`,
+                width:
+                  `${progressPercentage}%`,
               }}
             />
           </div>
@@ -744,40 +983,71 @@ if (Array.isArray(storedSourceItems)) {
           <div className="quiz-question-meta">
             <span>
               <FileQuestion size={16} />
-              {questionTypeLabels[currentQuestion.kind]}
+
+              {
+                questionTypeLabels[
+                  currentQuestion.kind
+                ]
+              }
             </span>
 
-            <strong>{currentQuestion.concept}</strong>
+            <strong>
+              {
+                currentQuestion.concept
+              }
+            </strong>
           </div>
 
           <div className="quiz-question-content">
             <span className="quiz-question-count">
               {quizMode === 'retry'
-                ? `변형 문제 ${currentQuestionIndex + 1}`
-                : `문제 ${currentQuestionIndex + 1}`}
+                ? `변형 문제 ${
+                    currentQuestionIndex +
+                    1
+                  }`
+                : `문제 ${
+                    currentQuestionIndex +
+                    1
+                  }`}
             </span>
 
-            <h2>{currentQuestion.prompt}</h2>
+            <h2>
+              {currentQuestion.prompt}
+            </h2>
 
             {currentQuestion.kind ===
               'multiple-choice' && (
               <div className="quiz-choice-list">
                 {currentQuestion.options.map(
-                  (option, optionIndex) => (
+                  (
+                    option,
+                    optionIndex,
+                  ) => (
                     <button
                       type="button"
                       className={
-                        currentAnswer === option
+                        currentAnswer ===
+                        option
                           ? 'is-selected'
                           : ''
                       }
                       onClick={() =>
-                        handleAnswerChange(option)
+                        handleAnswerChange(
+                          option,
+                        )
                       }
-                      disabled={isCurrentGraded}
-                      key={optionIndex}
+                      disabled={
+                        isCurrentGraded
+                      }
+                      key={
+                        optionIndex
+                      }
                     >
-                      <span>{optionIndex + 1}</span>
+                      <span>
+                        {optionIndex +
+                          1}
+                      </span>
+
                       {option}
                     </button>
                   ),
@@ -785,38 +1055,56 @@ if (Array.isArray(storedSourceItems)) {
               </div>
             )}
 
-            {currentQuestion.kind === 'ox' && (
+            {currentQuestion.kind ===
+              'ox' && (
               <div className="quiz-ox-list">
-                {['O', 'X'].map((option) => (
-                  <button
-                    type="button"
-                    className={
-                      currentAnswer === option
-                        ? 'is-selected'
-                        : ''
-                    }
-                    onClick={() =>
-                      handleAnswerChange(option)
-                    }
-                    disabled={isCurrentGraded}
-                    key={option}
-                  >
-                    {option}
-                  </button>
-                ))}
+                {['O', 'X'].map(
+                  (option) => (
+                    <button
+                      type="button"
+                      className={
+                        currentAnswer ===
+                        option
+                          ? 'is-selected'
+                          : ''
+                      }
+                      onClick={() =>
+                        handleAnswerChange(
+                          option,
+                        )
+                      }
+                      disabled={
+                        isCurrentGraded
+                      }
+                      key={option}
+                    >
+                      {option}
+                    </button>
+                  ),
+                )}
               </div>
             )}
 
-            {currentQuestion.kind === 'short-answer' && (
+            {currentQuestion.kind ===
+              'short-answer' && (
               <label className="quiz-short-answer">
-                <span>답을 입력해 주세요.</span>
+                <span>
+                  답을 입력해 주세요.
+                </span>
 
                 <textarea
-                  value={currentAnswer}
-                  onChange={(event) =>
-                    handleAnswerChange(event.target.value)
+                  value={
+                    currentAnswer
                   }
-                  disabled={isCurrentGraded}
+                  onChange={(event) =>
+                    handleAnswerChange(
+                      event.target
+                        .value,
+                    )
+                  }
+                  disabled={
+                    isCurrentGraded
+                  }
                   rows={4}
                   placeholder="핵심 개념을 포함해 답을 작성해 보세요."
                 />
@@ -824,7 +1112,9 @@ if (Array.isArray(storedSourceItems)) {
             )}
 
             {message && (
-              <p className="quiz-warning">{message}</p>
+              <p className="quiz-warning">
+                {message}
+              </p>
             )}
 
             {isCurrentGraded && (
@@ -836,9 +1126,13 @@ if (Array.isArray(storedSourceItems)) {
                 }`}
               >
                 {isCurrentCorrect ? (
-                  <CheckCircle2 size={22} />
+                  <CheckCircle2
+                    size={22}
+                  />
                 ) : (
-                  <CircleX size={22} />
+                  <CircleX
+                    size={22}
+                  />
                 )}
 
                 <div>
@@ -850,11 +1144,20 @@ if (Array.isArray(storedSourceItems)) {
 
                   {!isCurrentCorrect && (
                     <span>
-                      정답: {currentQuestion.answer}
+                      정답:{' '}
+                      {
+                        currentGradeResult
+                          ?.correctAnswer
+                      }
                     </span>
                   )}
 
-                  <p>{currentQuestion.explanation}</p>
+                  <p>
+                    {
+                      currentGradeResult
+                        ?.explanation
+                    }
+                  </p>
                 </div>
               </div>
             )}
@@ -865,22 +1168,37 @@ if (Array.isArray(storedSourceItems)) {
               <button
                 type="button"
                 className="quiz-check-button"
-                onClick={handleGrade}
+                onClick={() =>
+                  void handleGrade()
+                }
+                disabled={isGrading}
               >
-                정답 확인
+                {isGrading
+                  ? '채점 중...'
+                  : '정답 확인'}
               </button>
             ) : (
               <button
                 type="button"
                 className="quiz-next-button"
-                onClick={handleNext}
+                onClick={() =>
+                  void handleNext()
+                }
+                disabled={
+                  isSavingAttempt
+                }
               >
-                {currentQuestionIndex ===
-                questions.length - 1
-                  ? '결과 확인'
-                  : '다음 문제'}
+                {isSavingAttempt
+                  ? '결과 저장 중...'
+                  : currentQuestionIndex ===
+                      questions.length -
+                        1
+                    ? '결과 확인'
+                    : '다음 문제'}
 
-                <ArrowRight size={18} />
+                <ArrowRight
+                  size={18}
+                />
               </button>
             )}
           </div>

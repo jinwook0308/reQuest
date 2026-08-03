@@ -35,6 +35,10 @@ import {
 
 import './MainPage.css'
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ??
+  'http://localhost:4000/api'
+
 type StudyTask = {
   id: number
   label: string
@@ -50,6 +54,7 @@ type StudyDay = {
 }
 
 type SavedStudyRecord = {
+  id?: number
   date: string
   subject: string
   unit: string
@@ -255,19 +260,63 @@ function MainPage() {
   })
 
   useEffect(() => {
-  try {
-    const storedRecords = JSON.parse(
-      localStorage.getItem('request-study-records') ?? '[]',
-    ) as SavedStudyRecord[]
+    const controller = new AbortController()
 
-    if (Array.isArray(storedRecords)) {
-      setSavedRecords(storedRecords)
+    async function loadStudyRecords() {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/study-records`,
+          { signal: controller.signal },
+        )
+        const result = (await response.json()) as {
+          success: boolean
+          message?: string
+          data?: Array<
+            Omit<SavedStudyRecord, 'minutes'> & {
+              id: number | string
+              minutes: number | string
+              understanding: number | string
+            }
+          >
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.message ??
+              '학습 기록을 불러오지 못했습니다.',
+          )
+        }
+
+        setSavedRecords(
+          (result.data ?? []).map((record) => ({
+            ...record,
+            id: Number(record.id),
+            minutes: String(record.minutes),
+            understanding: Number(
+              record.understanding,
+            ),
+          })),
+        )
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name === 'AbortError'
+        ) {
+          return
+        }
+
+        console.error(
+          '학습 기록을 불러오지 못했습니다.',
+          error,
+        )
+        setSavedRecords([])
+      }
     }
-  } catch (error) {
-    console.error('학습 기록을 불러오지 못했습니다.', error)
-    setSavedRecords([])
-  }
-}, [])
+
+    void loadStudyRecords()
+
+    return () => controller.abort()
+  }, [])
 
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -793,7 +842,7 @@ function MainPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".jpg,.jpeg,.png,"
+                accept=".jpg,.jpeg,.png"
                 onChange={handleFileChange}
                 hidden
               />
@@ -824,7 +873,7 @@ function MainPage() {
                       클릭하여 업로드하세요
                     </strong>
 
-                    <span>JPG, PNG, PDF 최대 10MB</span>
+                    <span>JPG, PNG 최대 10MB</span>
                   </>
                 )}
               </button>

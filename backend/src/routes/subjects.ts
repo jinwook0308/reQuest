@@ -5,6 +5,7 @@ import {
 } from 'express'
 
 import { pool } from '../config/db'
+import { APP_USER_EMAIL } from '../config/app'
 
 const subjectsRouter = Router()
 
@@ -23,7 +24,7 @@ subjectsRouter.get(
           WHERE users.email = $1
           ORDER BY subjects.id ASC
         `,
-        ['dev@request.local'],
+        [APP_USER_EMAIL],
       )
 
       response.status(200).json({

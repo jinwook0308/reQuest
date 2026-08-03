@@ -1,4 +1,8 @@
-import { useMemo, useState } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import { Link } from 'react-router'
 import {
   ArrowLeft,
@@ -14,17 +18,45 @@ import {
 
 import './HistoryPage.css'
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ??
+  'http://localhost:4000/api'
+
 type SavedStudyRecord = {
   id: number
   date: string
   subject: string
   unit: string
-  minutes: string
+  minutes: number
   learned: string
   difficult: string
   keywords: string
   understanding: number
   createdAt?: string
+}
+
+type StudyRecordApiItem = {
+  id: string | number
+  date: string
+  subject: string
+  unit: string
+  minutes: string | number
+  learned: string
+  difficult: string
+  keywords: string
+  understanding: string | number
+  createdAt?: string
+}
+
+type StudyRecordsApiResponse = {
+  success: boolean
+  message?: string
+  data?: StudyRecordApiItem[]
+}
+
+type DeleteStudyRecordApiResponse = {
+  success: boolean
+  message?: string
 }
 
 const understandingLabels: Record<number, string> = {
@@ -33,21 +65,6 @@ const understandingLabels: Record<number, string> = {
   3: '보통이에요',
   4: '이해했어요',
   5: '완벽해요',
-}
-
-function loadSavedRecords() {
-  try {
-    const storedRecords = JSON.parse(
-      localStorage.getItem('request-study-records') ?? '[]',
-    )
-
-    return Array.isArray(storedRecords)
-      ? (storedRecords as SavedStudyRecord[])
-      : []
-  } catch (error) {
-    console.error('학습 기록을 불러오지 못했습니다.', error)
-    return []
-  }
 }
 
 function formatRecordDate(date: string) {
@@ -61,10 +78,15 @@ function formatRecordDate(date: string) {
   })
 }
 
-function formatStudyTime(minutes: string) {
+function formatStudyTime(
+  minutes: number | string,
+) {
   const totalMinutes = Number(minutes)
 
-  if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) {
+  if (
+    !Number.isFinite(totalMinutes) ||
+    totalMinutes <= 0
+  ) {
     return '0분'
   }
 
@@ -83,20 +105,93 @@ function formatStudyTime(minutes: string) {
 }
 
 function HistoryPage() {
-  const [records, setRecords] = useState<SavedStudyRecord[]>(
-    loadSavedRecords,
-  )
-  const [searchText, setSearchText] = useState('')
-  const [subjectFilter, setSubjectFilter] = useState('전체')
+  const [records, setRecords] = useState<
+    SavedStudyRecord[]
+  >([])
+
+  const [loadStatus, setLoadStatus] = useState<
+    'loading' | 'success' | 'error'
+  >('loading')
+
+  const [searchText, setSearchText] =
+    useState('')
+
+  const [subjectFilter, setSubjectFilter] =
+    useState('전체')
+
+  useEffect(() => {
+    let ignoreResult = false
+
+    const loadRecords = async () => {
+      setLoadStatus('loading')
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/study-records`,
+        )
+
+        const result =
+          (await response.json()) as StudyRecordsApiResponse
+
+        if (
+          !response.ok ||
+          !result.success ||
+          !result.data
+        ) {
+          throw new Error(
+            result.message ??
+              '학습 기록 조회에 실패했습니다.',
+          )
+        }
+
+        const normalizedRecords =
+          result.data.map((record) => ({
+            ...record,
+            id: Number(record.id),
+            minutes: Number(record.minutes),
+            understanding: Number(
+              record.understanding,
+            ),
+          }))
+
+        if (!ignoreResult) {
+          setRecords(normalizedRecords)
+          setLoadStatus('success')
+        }
+      } catch (error) {
+        console.error(
+          '학습 기록을 불러오지 못했습니다.',
+          error,
+        )
+
+        if (!ignoreResult) {
+          setRecords([])
+          setLoadStatus('error')
+        }
+      }
+    }
+
+    void loadRecords()
+
+    return () => {
+      ignoreResult = true
+    }
+  }, [])
 
   const subjects = useMemo(() => {
-    const savedSubjects = records.map((record) => record.subject)
+    const savedSubjects = records.map(
+      (record) => record.subject,
+    )
 
-    return ['전체', ...new Set(savedSubjects)]
+    return [
+      '전체',
+      ...new Set(savedSubjects),
+    ]
   }, [records])
 
   const filteredRecords = useMemo(() => {
-    const normalizedSearchText = searchText.trim().toLowerCase()
+    const normalizedSearchText =
+      searchText.trim().toLowerCase()
 
     return records
       .filter((record) => {
@@ -116,7 +211,9 @@ function HistoryPage() {
 
         const matchesSearch =
           normalizedSearchText.length === 0 ||
-          searchableText.includes(normalizedSearchText)
+          searchableText.includes(
+            normalizedSearchText,
+          )
 
         return matchesSubject && matchesSearch
       })
@@ -136,7 +233,8 @@ function HistoryPage() {
   }, [records, searchText, subjectFilter])
 
   const totalMinutes = records.reduce(
-    (total, record) => total + Number(record.minutes || 0),
+    (total, record) =>
+      total + Number(record.minutes || 0),
     0,
   )
 
@@ -145,13 +243,16 @@ function HistoryPage() {
       ? (
           records.reduce(
             (total, record) =>
-              total + Number(record.understanding || 0),
+              total +
+              Number(record.understanding || 0),
             0,
           ) / records.length
         ).toFixed(1)
       : '0'
 
-  const handleDelete = (recordId: number) => {
+  const handleDelete = async (
+    recordId: number,
+  ) => {
     const shouldDelete = window.confirm(
       '이 학습 기록을 삭제할까요?',
     )
@@ -160,28 +261,57 @@ function HistoryPage() {
       return
     }
 
-    const nextRecords = records.filter(
-      (record) => record.id !== recordId,
-    )
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/study-records/${recordId}`,
+        {
+          method: 'DELETE',
+        },
+      )
 
-    setRecords(nextRecords)
+      const result =
+        (await response.json()) as DeleteStudyRecordApiResponse
 
-    localStorage.setItem(
-      'request-study-records',
-      JSON.stringify(nextRecords),
-    )
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ??
+            '학습 기록 삭제에 실패했습니다.',
+        )
+      }
+
+      setRecords((previousRecords) =>
+        previousRecords.filter(
+          (record) => record.id !== recordId,
+        ),
+      )
+    } catch (error) {
+      console.error(
+        '학습 기록을 삭제하지 못했습니다.',
+        error,
+      )
+
+      window.alert(
+        '학습 기록을 삭제하지 못했습니다. 다시 시도해 주세요.',
+      )
+    }
   }
 
   return (
     <main className="history-page">
       <div className="history-container">
         <div className="history-topbar">
-          <Link className="history-back-link" to="/">
+          <Link
+            className="history-back-link"
+            to="/"
+          >
             <ArrowLeft size={17} />
             이번 주로 돌아가기
           </Link>
 
-          <Link className="history-create-button" to="/records">
+          <Link
+            className="history-create-button"
+            to="/records"
+          >
             <Plus size={18} />
             새 학습 기록 작성
           </Link>
@@ -200,9 +330,11 @@ function HistoryPage() {
             <h1>나의 학습 기록</h1>
 
             <p>
-              매일 남긴 학습 기록을 다시 확인하고,
+              매일 남긴 학습 기록을 다시
+              확인하고,
               <br />
-              내가 어떻게 성장했는지 살펴보세요.
+              내가 어떻게 성장했는지
+              살펴보세요.
             </p>
           </div>
         </header>
@@ -222,7 +354,10 @@ function HistoryPage() {
 
             <div>
               <span>누적 학습시간</span>
-              <strong>{formatStudyTime(String(totalMinutes))}</strong>
+
+              <strong>
+                {formatStudyTime(totalMinutes)}
+              </strong>
             </div>
           </div>
 
@@ -231,7 +366,10 @@ function HistoryPage() {
 
             <div>
               <span>평균 이해도</span>
-              <strong>{averageUnderstanding} / 5</strong>
+
+              <strong>
+                {averageUnderstanding} / 5
+              </strong>
             </div>
           </div>
         </section>
@@ -254,19 +392,51 @@ function HistoryPage() {
             className="history-subject-filter"
             value={subjectFilter}
             onChange={(event) =>
-              setSubjectFilter(event.target.value)
+              setSubjectFilter(
+                event.target.value,
+              )
             }
             aria-label="과목 선택"
           >
             {subjects.map((subject) => (
-              <option value={subject} key={subject}>
+              <option
+                value={subject}
+                key={subject}
+              >
                 {subject}
               </option>
             ))}
           </select>
         </section>
 
-        {filteredRecords.length === 0 ? (
+        {loadStatus === 'loading' ? (
+          <section className="history-empty">
+            <span className="history-empty-icon">
+              <BookOpen size={29} />
+            </span>
+
+            <h2>
+              학습 기록을 불러오는 중이에요.
+            </h2>
+
+            <p>잠시만 기다려 주세요.</p>
+          </section>
+        ) : loadStatus === 'error' ? (
+          <section className="history-empty">
+            <span className="history-empty-icon">
+              <BookOpen size={29} />
+            </span>
+
+            <h2>
+              학습 기록을 불러오지 못했어요.
+            </h2>
+
+            <p>
+              백엔드 서버가 실행 중인지 확인한
+              뒤 새로고침해 주세요.
+            </p>
+          </section>
+        ) : filteredRecords.length === 0 ? (
           <section className="history-empty">
             <span className="history-empty-icon">
               <BookOpen size={29} />
@@ -299,7 +469,9 @@ function HistoryPage() {
             {filteredRecords.map((record) => {
               const keywords = record.keywords
                 .split(',')
-                .map((keyword) => keyword.trim())
+                .map((keyword) =>
+                  keyword.trim(),
+                )
                 .filter(Boolean)
 
               return (
@@ -307,38 +479,45 @@ function HistoryPage() {
                   className="history-record-card"
                   key={record.id}
                 >
-                <div className="history-record-header">
+                  <div className="history-record-header">
                     <div className="history-record-identity">
-                        <span className="history-record-date">
-                        <CalendarDays size={15} />
-                        {formatRecordDate(record.date)}
-                        </span>
+                      <span className="history-record-date">
+                        <CalendarDays
+                          size={15}
+                        />
 
-                        <span className="history-record-subject">
+                        {formatRecordDate(
+                          record.date,
+                        )}
+                      </span>
+
+                      <span className="history-record-subject">
                         {record.subject}
-                        </span>
+                      </span>
                     </div>
 
                     <div className="history-record-actions">
-                        <Link
+                      <Link
                         className="history-detail-link"
                         to={`/history/${record.id}`}
                         aria-label={`${record.unit} 기록 상세보기`}
-                        >
+                      >
                         상세보기
                         <ArrowRight size={15} />
-                        </Link>
+                      </Link>
 
-                        <button
+                      <button
                         type="button"
                         className="history-delete-button"
-                        onClick={() => handleDelete(record.id)}
+                        onClick={() =>
+                          handleDelete(record.id)
+                        }
                         aria-label={`${record.unit} 기록 삭제`}
-                        >
+                      >
                         <Trash2 size={17} />
-                        </button>
-                        </div>
+                      </button>
                     </div>
+                  </div>
 
                   <h2>
                     {record.unit.trim() ||
@@ -348,12 +527,15 @@ function HistoryPage() {
                   <div className="history-record-meta">
                     <span>
                       <Clock3 size={16} />
-                      {formatStudyTime(record.minutes)}
+                      {formatStudyTime(
+                        record.minutes,
+                      )}
                     </span>
 
                     <span>
                       <Star size={16} />
-                      이해도 {record.understanding} ·{' '}
+                      이해도{' '}
+                      {record.understanding} ·{' '}
                       {understandingLabels[
                         record.understanding
                       ] ?? '미선택'}
@@ -362,21 +544,33 @@ function HistoryPage() {
 
                   <div className="history-record-content">
                     <div>
-                      <strong>이해한 내용</strong>
+                      <strong>
+                        이해한 내용
+                      </strong>
+
                       <p>{record.learned}</p>
                     </div>
 
                     <div>
-                      <strong>다시 볼 내용</strong>
-                      <p>{record.difficult}</p>
+                      <strong>
+                        다시 볼 내용
+                      </strong>
+
+                      <p>
+                        {record.difficult}
+                      </p>
                     </div>
                   </div>
 
                   {keywords.length > 0 && (
                     <div className="history-keywords">
-                      {keywords.map((keyword) => (
-                        <span key={keyword}>{keyword}</span>
-                      ))}
+                      {keywords.map(
+                        (keyword) => (
+                          <span key={keyword}>
+                            {keyword}
+                          </span>
+                        ),
+                      )}
                     </div>
                   )}
                 </article>
