@@ -11,12 +11,9 @@ import { useNavigate } from 'react-router'
 
 import {
   ArrowRight,
-  Bell,
-  BookOpen,
   Bookmark,
   Brain,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -25,12 +22,10 @@ import {
   Link2,
   PieChart,
   Plus,
-  Search,
   Sparkles,
   Star,
   Target,
   Upload,
-  UserRound,
 } from 'lucide-react'
 
 import './MainPage.css'
@@ -65,14 +60,6 @@ type SavedStudyRecord = {
   understanding: number
 }
 
-const navigationItems = [
-  '이번 주',
-  '학습 기록',
-  '오답 노트',
-  'AI 복습',
-  '통계',
-  '가이드',
-]
 
 const journeySteps = [
   { number: 1, label: '계획', completed: true },
@@ -402,13 +389,12 @@ function MainPage() {
     return
   }
 
-  if (selectedFile.size > 1024 * 1024) {
-    window.alert(
-      '현재 MVP에서는 1MB 이하 이미지를 선택해 주세요.',
-    )
-    return
-  }
-
+if (selectedFile.size > 10 * 1024 * 1024) {
+  window.alert(
+    '10MB 이하 이미지를 선택해 주세요.',
+  )
+  return
+}
   const reader = new FileReader()
 
   reader.onload = () => {
@@ -437,78 +423,6 @@ function MainPage() {
 
   return (
     <div className="main-page">
-      <header className="top-header">
-        <a className="brand" href="/" aria-label="reQuest 홈">
-          <span className="brand-icon">
-            <BookOpen size={29} strokeWidth={1.7} />
-            <span className="brand-bookmark" />
-          </span>
-
-          <span className="brand-name">reQuest</span>
-        </a>
-
-        <nav className="main-navigation" aria-label="주요 메뉴">
-          {navigationItems.map((item, index) => (
-           <button
-                type="button"
-                className={`navigation-item ${
-                    index === 0 ? 'is-active' : ''
-                }`}
-                key={item}
-                onClick={() => {
-                    if (item === '이번 주') {
-                    navigate('/')
-                    }
-
-                    if (item === '학습 기록') {
-                    navigate('/history')
-                    }
-
-                    if (item === '통계') {
-                        navigate('/statistics')
-                    }
-
-                    if (item === '오답 노트') {
-                        navigate('/wrong-notes')
-                    }
-                }}
-                >
-                {item}
-                </button>
-          ))}
-        </nav>
-
-        <div className="header-actions">
-          <button
-            type="button"
-            className="header-icon-button"
-            aria-label="검색"
-          >
-            <Search size={21} />
-          </button>
-
-          <button
-            type="button"
-            className="header-icon-button notification-button"
-            aria-label="알림"
-          >
-            <Bell size={20} />
-
-            <span className="notification-dot" />
-          </button>
-
-          <button type="button" className="profile-button">
-            <span className="profile-image">
-              <UserRound size={22} />
-            </span>
-
-            <span className="profile-name">학습자님</span>
-
-            <ChevronDown size={15} />
-          </button>
-        </div>
-      </header>
-
       <main className="dashboard-container">
         <section className="week-toolbar">
           <div className="week-navigation">
