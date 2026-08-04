@@ -115,6 +115,18 @@ type QuestSetApiItem = {
   updatedAt: string
 }
 
+type ReviewQuestionGenerator =
+  | 'openai'
+  | 'rule-based'
+  | 'rule-based-fallback'
+
+type QuestDraftApiItem = {
+  sourceType: SourceType
+  sourceId: number | string
+  generator: ReviewQuestionGenerator
+  questions: ReviewQuestion[]
+}
+
 const questionTypeLabels: Record<
   QuestionKind,
   string
@@ -262,106 +274,30 @@ async function loadQuestSet(
   return result.data
 }
 
-function createMultipleChoiceOptions(
-  record: SourceRecord,
-) {
-  const correctAnswer =
-    record.correctAnswer?.trim() ||
-    '등록된 실제 정답'
+async function generateQuestDraft(
+  sourceType: SourceType,
+  sourceId: string,
+): Promise<QuestDraftApiItem> {
+  const response = await fetch(
+    `${API_BASE_URL}/review-quest-drafts/${sourceType}/${sourceId}`,
+    { method: 'POST' },
+  )
 
-  const wrongAnswer =
-    record.wrongAnswer?.trim() ||
-    '등록된 오답'
+  const result =
+    (await response.json()) as ApiResponse<QuestDraftApiItem>
 
-  const candidates = [
-    wrongAnswer,
-    '주어진 조건만으로 판단할 수 없다',
-    correctAnswer,
-    '문제의 조건이 부족하다',
-  ]
-
-  const options = [
-    ...new Set(candidates),
-  ]
-
-  while (options.length < 4) {
-    options.push(
-      `선택지 ${options.length + 1}`,
+  if (
+    !response.ok ||
+    !result.success ||
+    !result.data
+  ) {
+    throw new Error(
+      result.message ??
+        'AI 복습 문제를 생성하지 못했습니다.',
     )
   }
 
-  return options.slice(0, 4)
-}
-
-function createMockQuestions(
-  record: SourceRecord,
-): ReviewQuestion[] {
-  const firstKeyword =
-    record.keywords
-      .split(',')
-      .map((keyword) =>
-        keyword.trim(),
-      )
-      .find(Boolean) ||
-    record.unit ||
-    record.subject
-
-  const correctAnswer =
-    record.correctAnswer?.trim() ||
-    '등록된 실제 정답'
-
-  const wrongAnswer =
-    record.wrongAnswer?.trim() ||
-    '등록된 오답'
-
-  const explanation =
-    record.mistakeReason?.trim() ||
-    record.difficult?.trim() ||
-    `${firstKeyword} 개념을 다시 확인해야 합니다.`
-
-  const createdTime = Date.now()
-
-  return [
-    {
-      id: createdTime,
-      kind: 'multiple-choice',
-      concept: firstKeyword,
-      prompt:
-        `다음 문제의 올바른 답을 고르세요.\n\n${
-          record.mistakeQuestion ||
-          record.difficult ||
-          `${record.unit} 관련 문제`
-        }`,
-      options:
-        createMultipleChoiceOptions(
-          record,
-        ),
-      answer: correctAnswer,
-      explanation,
-    },
-    {
-      id: createdTime + 1,
-      kind: 'ox',
-      concept: firstKeyword,
-      prompt:
-        `"${wrongAnswer}"은(는) 등록한 문제의 올바른 답이다.`,
-      options: [],
-      answer: 'X',
-      explanation:
-        `등록된 실제 정답은 "${correctAnswer}"입니다. ${explanation}`,
-    },
-    {
-      id: createdTime + 2,
-      kind: 'short-answer',
-      concept: firstKeyword,
-      prompt:
-        `${firstKeyword} 개념에서 이 문제를 틀린 이유를 한 문장으로 설명하세요.`,
-      options: [],
-      answer: explanation,
-      explanation:
-        `핵심은 다음 내용을 이해하는 것입니다. ${explanation}`,
-    },
-  ]
+  return result.data
 }
 
 function QuestReviewPage() {
@@ -388,6 +324,14 @@ function QuestReviewPage() {
 
   const [questions, setQuestions] =
     useState<ReviewQuestion[]>([])
+
+  const [generator, setGenerator] =
+    useState<
+      ReviewQuestionGenerator | 'saved' | null
+    >(null)
+
+  const [isGenerating, setIsGenerating] =
+    useState(false)
 
   const [isLoading, setIsLoading] =
     useState(true)
@@ -443,10 +387,11 @@ function QuestReviewPage() {
         setRecord(loadedRecord)
 
         setQuestions(
-          savedQuestSet?.questions ??
-            createMockQuestions(
-              loadedRecord,
-            ),
+          savedQuestSet?.questions ?? [],
+        )
+
+        setGenerator(
+          savedQuestSet ? 'saved' : null,
         )
       } catch (error) {
         if (
@@ -723,6 +668,50 @@ function QuestReviewPage() {
     setMessage('')
   }
 
+  const handleGenerateDraft = async () => {
+    if (!sourceId) {
+      return
+    }
+
+    if (
+      questions.length > 0 &&
+      !window.confirm(
+        '현재 문제를 버리고 AI 변형 문제를 새로 만들까요?',
+      )
+    ) {
+      return
+    }
+
+    try {
+      setIsGenerating(true)
+      setSaveStatus('idle')
+      setMessage('')
+
+      const draft =
+        await generateQuestDraft(
+          sourceType,
+          sourceId,
+        )
+
+      setQuestions(draft.questions)
+      setGenerator(draft.generator)
+    } catch (error) {
+      console.error(
+        'AI 복습 문제 생성 실패:',
+        error,
+      )
+
+      setSaveStatus('error')
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'AI 복습 문제를 생성하지 못했습니다.',
+      )
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   const handleSave = async () => {
     const hasEmptyField =
       questions.some(
@@ -800,6 +789,8 @@ function QuestReviewPage() {
       }
 
       setSaveStatus('saved')
+
+      setGenerator('saved')
 
       setMessage(
         result.message ??
@@ -902,17 +893,40 @@ function QuestReviewPage() {
 
           <div>
             <strong>
-              규칙 기반 모의 생성기가{' '}
-              {questions.length}개의
-              문제를 준비했습니다.
+              {isGenerating
+                ? 'AI가 변형 문제를 만들고 있어요.'
+                : generator === 'openai'
+                  ? `AI가 변형 문제 ${questions.length}개를 만들었습니다.`
+                  : generator === 'saved'
+                    ? `저장된 복습 문제 ${questions.length}개를 불러왔습니다.`
+                    : generator === 'rule-based-fallback'
+                      ? 'AI 연결 실패로 기본 문제를 불러왔습니다.'
+                      : generator === 'rule-based'
+                        ? 'AI가 설정되지 않아 기본 문제를 불러왔습니다.'
+                        : 'AI로 새로운 변형 문제를 만들어 보세요.'}
             </strong>
 
             <span>
-              현재는 규칙 기반 생성기이며,
-              이후 동일한 API 구조에 실제
-              AI를 연결합니다.
+              생성된 문제와 정답, 해설을
+              검토한 뒤 저장해 주세요.
             </span>
           </div>
+
+          <button
+            type="button"
+            className="quest-generate-button"
+            onClick={() =>
+              void handleGenerateDraft()
+            }
+            disabled={isGenerating}
+          >
+            <Sparkles size={15} />
+            {isGenerating
+              ? '생성 중...'
+              : questions.length > 0
+                ? 'AI로 다시 생성'
+                : 'AI 문제 생성하기'}
+          </button>
         </section>
 
         <section className="quest-question-list">
@@ -1022,7 +1036,7 @@ function QuestReviewPage() {
                             .value,
                         )
                       }
-                      rows={4}
+                      rows={8}
                     />
                   </label>
 
@@ -1236,7 +1250,9 @@ function QuestReviewPage() {
               void handleSave()
             }
             disabled={
-              saveStatus === 'saving'
+              saveStatus === 'saving' ||
+              isGenerating ||
+              questions.length < 3
             }
           >
             <Save size={18} />

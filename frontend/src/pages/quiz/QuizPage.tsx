@@ -179,50 +179,82 @@ async function loadSourceRecord(
   }
 }
 
-function createRetryQuestions(
-  incorrectQuestions:
-    ReviewQuestion[],
-  retryRound: number,
-) {
-  return incorrectQuestions.map(
-    (question) => {
-      const retryTitle =
-        `[변형 복습 ${retryRound}회차]`
+function QuestionPrompt({
+  prompt,
+}: {
+  prompt: string
+}) {
+  const normalizedPrompt =
+    prompt.replace(/\r\n/g, '\n')
 
-      if (
-        question.kind ===
-        'multiple-choice'
-      ) {
-        return {
-          ...question,
-          kind:
-            'short-answer' as QuestionKind,
-          prompt:
-            `${retryTitle}\n선택지 없이 정답을 직접 입력해 보세요.\n\n${question.prompt}`,
-          options: [],
-        }
-      }
+  const codeBlockPattern =
+    /```(?:[a-zA-Z0-9_+-]+)?\s*\n([\s\S]*?)```/g
 
-      if (question.kind === 'ox') {
-        return {
-          ...question,
-          kind:
-            'multiple-choice' as QuestionKind,
-          prompt:
-            `${retryTitle}\n다음 진술이 맞는지 판단해 보세요.\n\n${question.prompt}`,
-          options: ['O', 'X'],
-        }
-      }
+  const parts: Array<{
+    type: 'text' | 'code'
+    value: string
+  }> = []
 
-      return {
-        ...question,
-        kind:
-          'short-answer' as QuestionKind,
-        prompt:
-          `${retryTitle}\n같은 개념을 다른 표현으로 다시 설명해 보세요.\n\n${question.prompt}`,
-        options: [],
-      }
-    },
+  let lastIndex = 0
+  let match =
+    codeBlockPattern.exec(
+      normalizedPrompt,
+    )
+
+  while (match) {
+    const textBeforeCode =
+      normalizedPrompt.slice(
+        lastIndex,
+        match.index,
+      )
+
+    if (textBeforeCode.trim()) {
+      parts.push({
+        type: 'text',
+        value: textBeforeCode.trim(),
+      })
+    }
+
+    parts.push({
+      type: 'code',
+      value: match[1].trimEnd(),
+    })
+
+    lastIndex =
+      codeBlockPattern.lastIndex
+
+    match = codeBlockPattern.exec(
+      normalizedPrompt,
+    )
+  }
+
+  const remainingText =
+    normalizedPrompt.slice(lastIndex)
+
+  if (remainingText.trim()) {
+    parts.push({
+      type: 'text',
+      value: remainingText.trim(),
+    })
+  }
+
+  return (
+    <div className="quiz-question-prompt">
+      {parts.map((part, index) =>
+        part.type === 'code' ? (
+          <pre
+            className="quiz-question-code"
+            key={`code-${index}`}
+          >
+            <code>{part.value}</code>
+          </pre>
+        ) : (
+          <p key={`text-${index}`}>
+            {part.value}
+          </p>
+        ),
+      )}
+    </div>
   )
 }
 
@@ -681,30 +713,12 @@ function QuizPage() {
     resetQuizState()
   }
 
-  const handleRetryIncorrect = (
-    incorrectQuestions:
-      ReviewQuestion[],
-  ) => {
-    const nextRetryRound =
-      retryRound + 1
-
-    const retryQuestions =
-      createRetryQuestions(
-        incorrectQuestions,
-        nextRetryRound,
-      )
-
-    setQuizQuestions(
-      retryQuestions,
+  const handleRetryIncorrect = () => {
+    navigate(
+      isWrongNoteSource
+        ? `/quest-review/wrong-note/${sourceId}`
+        : `/quest-review/${sourceId}`,
     )
-
-    setQuizMode('retry')
-
-    setRetryRound(
-      nextRetryRound,
-    )
-
-    resetQuizState()
   }
 
   if (isFinished) {
@@ -751,7 +765,7 @@ function QuizPage() {
                   'retry'
                   ? '변형 복습까지 통과했어요!'
                   : '모든 개념을 통과했어요!'
-                : '틀린 문제를 변형해서 다시 풀어볼까요?'}
+                : 'AI로 새로운 변형 문제를 만들어 볼까요?'}
             </h1>
 
             <p>
@@ -849,17 +863,14 @@ function QuizPage() {
                 <button
                   type="button"
                   className="is-retry"
-                  onClick={() =>
-                    handleRetryIncorrect(
-                      incorrectQuestions,
-                    )
+                  onClick={
+                    handleRetryIncorrect
                   }
                 >
                   <Shuffle
                     size={17}
                   />
-                  틀린 문제 변형해서
-                  다시 풀기
+                  AI 변형 문제 만들기
                 </button>
               ) : (
                 <button
@@ -1011,9 +1022,11 @@ function QuizPage() {
                   }`}
             </span>
 
-            <h2>
-              {currentQuestion.prompt}
-            </h2>
+            <QuestionPrompt
+              prompt={
+                currentQuestion.prompt
+              }
+            />
 
             {currentQuestion.kind ===
               'multiple-choice' && (
