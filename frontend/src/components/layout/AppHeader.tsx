@@ -46,7 +46,9 @@ const navigationItems: NavigationItem[] = [
   },
   {
     label: 'AI 복습',
+    path: '/ai-review',
     activePaths: [
+      '/ai-review',
       '/quest-review',
       '/quiz',
     ],

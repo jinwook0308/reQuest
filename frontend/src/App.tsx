@@ -58,6 +58,13 @@ const StatisticsPage = lazy(
     ),
 )
 
+const AiReviewPage = lazy(
+  () =>
+    import(
+      './pages/ai-review/AiReviewPage'
+    ),
+)
+
 const WrongNotesPage = lazy(
   () =>
     import(
@@ -134,6 +141,11 @@ function App() {
             element={
               <HistoryDetailPage />
             }
+          />
+
+          <Route
+            path="/ai-review"
+            element={<AiReviewPage />}
           />
 
           <Route
