@@ -11,6 +11,7 @@ import multer from 'multer'
 
 import { CORS_ORIGIN } from './config/app'
 import { pool } from './config/db'
+import reviewQuestDraftsRouter from './routes/reviewQuestDrafts'
 import reviewQuestsRouter from './routes/reviewQuests'
 import studyRecordsRouter from './routes/studyRecords'
 import subjectsRouter from './routes/subjects'
@@ -53,6 +54,11 @@ app.use(
 app.use(
   '/api/wrong-notes',
   wrongNotesRouter,
+)
+
+app.use(
+  '/api/review-quest-drafts',
+  reviewQuestDraftsRouter,
 )
 
 app.use(
