@@ -126,6 +126,16 @@ function formatStudyTime(
   return `${hours}시간 ${remainingMinutes}분`
 }
 
+const DAY_NAMES = [
+  '일',
+  '월',
+  '화',
+  '수',
+  '목',
+  '금',
+  '토',
+]
+
 function HistoryPage() {
   const [records, setRecords] = useState<
     SavedStudyRecord[]
@@ -141,37 +151,64 @@ function HistoryPage() {
   const [subjectFilter, setSubjectFilter] =
     useState('전체')
 
-  // --- 날짜 기본값 설정 (디폴트는 오늘 날짜) ---
+  // 날짜 기본값 설정
   const today = useMemo(() => new Date(), [])
-  const todayKey = useMemo(() => formatDateKey(today), [today])
+  const todayKey = useMemo(
+    () => formatDateKey(today),
+    [today],
+  )
   const currentYear = today.getFullYear()
   const currentMonth = today.getMonth()
 
-  // 선택된 날짜 (디폴트: 오늘 날짜)
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
-
-  const dayNames = ['일', '월', '화', '수', '목', '금', '토']
+  // 선택된 날짜
+  const [selectedDate, setSelectedDate] =
+    useState<string | null>(null)
 
   const monthDays = useMemo(() => {
-    const totalDaysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
+    const totalDaysInMonth = new Date(
+      currentYear,
+      currentMonth + 1,
+      0,
+    ).getDate()
 
-    return Array.from({ length: totalDaysInMonth }, (_, index) => {
-      const dayNumber = index + 1
-      const dateObj = new Date(currentYear, currentMonth, dayNumber)
-      const dateKey = formatDateKey(dateObj)
+    return Array.from(
+      { length: totalDaysInMonth },
+      (_, index) => {
+        const dayNumber = index + 1
+        const dateObj = new Date(
+          currentYear,
+          currentMonth,
+          dayNumber,
+        )
+        const dateKey = formatDateKey(dateObj)
 
-      const hasRecord = records.some((record) => record.date === dateKey)
+        const hasRecord = records.some(
+          (record) =>
+            record.date === dateKey,
+        )
 
-      return {
-        dateKey,
-        dayName: dayNames[dateObj.getDay()],
-        date: String(dayNumber),
-        active: hasRecord,
-        today: isSameDate(dateObj, today),
-        selected: selectedDate === dateKey,
-      }
-    })
-  }, [currentYear, currentMonth, records, today, selectedDate])
+        return {
+          dateKey,
+          dayName:
+            DAY_NAMES[dateObj.getDay()],
+          date: String(dayNumber),
+          active: hasRecord,
+          today: isSameDate(
+            dateObj,
+            today,
+          ),
+          selected:
+            selectedDate === dateKey,
+        }
+      },
+    )
+  }, [
+    currentYear,
+    currentMonth,
+    records,
+    today,
+    selectedDate,
+  ])
 
   useEffect(() => {
     let ignoreResult = false

@@ -15,6 +15,8 @@
 
 현재 문제 초안은 규칙 기반 생성기에서 만듭니다. 실제 AI 연결 시에도 생성 결과를 바로 출제하지 않고 사용자가 문제·정답·해설을 검토한 뒤 저장하는 흐름을 유지할 예정입니다.
 
+복습 문제 초안은 `POST /api/review-quest-drafts/:sourceType/:sourceId`로 생성합니다. `sourceType`은 `study-record` 또는 `wrong-note`이며, 이 API는 초안만 반환하고 자동 저장하지 않습니다.
+
 ## 기술 스택
 
 - 프론트엔드: React, TypeScript, Vite, React Router, Recharts, Lucide React, 페이지별 CSS
