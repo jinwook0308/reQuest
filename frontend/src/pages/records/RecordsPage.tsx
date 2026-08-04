@@ -140,10 +140,10 @@ function RecordsPage() {
         <div className="records-topbar">
           <Link
             className="records-back-link"
-            to="/"
+            to="/history"
           >
             <ArrowLeft size={17} />
-            이번 주로 돌아가기
+            학습 기록으로 돌아가기
           </Link>
 
           <span className="records-step">
@@ -437,7 +437,7 @@ function RecordsPage() {
               <>
                 <Link
                   className="record-cancel-button"
-                  to="/"
+                  to="/history"
                 >
                   취소
                 </Link>

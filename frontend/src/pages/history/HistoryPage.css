@@ -1,5 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
 
+/* ==========================================
+   1. 루트 및 페이지 기본 설정 (Root & Page Base)
+   ================================---------- */
 .history-page {
   --history-background: #fbfaf7;
   --history-surface: #ffffff;
@@ -39,11 +42,167 @@
   font: inherit;
 }
 
-.history-container {
-  width: min(100%, 1050px);
+
+/* ==========================================
+   2. 3단 그리드 레이아웃 구조 (3-Column Layout)
+   ================================---------- */
+.history-container.layout-3col {
+  display: grid;
+  grid-template-columns: 210px 1fr 230px;
+  gap: 24px;
+  width: min(100%, 1240px);
   margin: 0 auto;
+  align-items: start;
 }
 
+.history-main-content {
+  min-width: 0;
+}
+
+
+/* ==========================================
+   3. 사이드바 공통 스펙 및 위젯 스타일 (Sidebars)
+   ================================---------- */
+
+/* 사이드바 카드 공통 레이아웃 */
+.sidebar-card {
+  background: var(--history-surface);
+  border: 1px solid var(--history-border);
+  border-radius: 11px;
+  padding: 18px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 14px rgba(46, 42, 33, 0.03);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  color: #8d7652;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--history-text);
+}
+
+/* 👈 [좌측] 태그 스티커 목록 */
+.tag-sticker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tag-sticker {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--history-paper);
+  border: 1px solid var(--history-border);
+  border-left: 4px solid var(--history-border-strong);
+  border-radius: 6px;
+  color: var(--history-text-soft);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.tag-sticker.active {
+  background: var(--history-orange-soft);
+  color: #966318;
+  border-color: #ead3aa;
+  border-left: 4px solid var(--history-orange);
+  font-weight: 700;
+}
+
+/* 👉 [우측] 이번 주 출석부 미니 달력 */
+.mini-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 2px;
+  background: var(--history-paper);
+  border: 1px solid var(--history-border);
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.calendar-day .day-name {
+  font-size: 10px;
+  color: var(--history-text-light);
+}
+
+.calendar-day .day-date {
+  font-weight: 600;
+  margin-top: 2px;
+  color: var(--history-text-soft);
+}
+
+.calendar-day.today {
+  border-color: var(--history-orange);
+  background: #ffffff;
+}
+
+.calendar-day.today .day-date {
+  color: var(--history-orange);
+}
+
+.calendar-day.completed .day-date {
+  color: var(--history-green);
+}
+
+.check-icon {
+  color: var(--history-green);
+  margin-top: 3px;
+}
+
+.ai-summary-card {
+  position: relative;
+  background: #fffdf0;
+  border: 1px solid #ede8c4;
+}
+
+.postit-tape {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50px;
+  height: 14px;
+  background: rgba(225, 215, 180, 0.5);
+  border-radius: 2px;
+}
+
+.ai-summary-card h4 {
+  margin: 4px 0 6px 0;
+  font-size: 13px;
+  color: var(--history-text);
+}
+
+.ai-summary-card p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--history-text-soft);
+  line-height: 1.6;
+}
+
+
+/* ==========================================
+   4. 중앙 본문 영역 (Main Content)
+   ================================---------- */
+
+/* 상단 네비게이션 및 액션 바 */
 .history-topbar {
   display: flex;
   align-items: center;
@@ -95,6 +254,7 @@
   transform: translateY(-1px);
 }
 
+/* 페이지 헤더 타이틀 */
 .history-heading {
   display: flex;
   align-items: flex-start;
@@ -127,7 +287,6 @@
   margin: 7px 0 10px;
   font-family: 'Gowun Batang', Georgia, serif;
   font-size: 40px;
-  font-weight: 700;
   letter-spacing: -1.7px;
   line-height: 1.25;
 }
@@ -139,6 +298,7 @@
   line-height: 1.75;
 }
 
+/* 상단 통계 요약 패널 */
 .history-summary {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -180,6 +340,7 @@
   font-size: 18px;
 }
 
+/* 검색 및 과목 필터 툴바 */
 .history-toolbar {
   display: grid;
   grid-template-columns: 1fr 160px;
@@ -224,6 +385,7 @@
   box-shadow: 0 0 0 3px rgba(198, 154, 85, 0.11);
 }
 
+/* 학습 기록 카드 목록 */
 .history-list {
   display: grid;
   gap: 17px;
@@ -276,7 +438,6 @@
   font-weight: 700;
 }
 
-
 .history-record-actions {
   display: flex;
   align-items: center;
@@ -306,8 +467,6 @@
   color: #966318;
   border-color: #ead3aa;
 }
-
-
 
 .history-delete-button {
   display: inline-flex;
@@ -394,6 +553,7 @@
   font-weight: 600;
 }
 
+/* 데이터가 없을 때의 빈 화면 (Empty State) */
 .history-empty {
   display: grid;
   justify-items: center;
@@ -431,6 +591,23 @@
   line-height: 1.7;
 }
 
+
+/* ==========================================
+   5. 반응형 미디어 쿼리 (Responsive Styles)
+   ================================---------- */
+
+/* 태블릿 및 화면 좁아짐 (1080px 이하) */
+@media (max-width: 1080px) {
+  .history-container.layout-3col {
+    grid-template-columns: 1fr;
+  }
+
+  .history-sidebar {
+    display: none;
+  }
+}
+
+/* 모바일 및 소형 화면 (700px 이하) */
 @media (max-width: 700px) {
   .history-page {
     padding: 28px 17px 55px;
