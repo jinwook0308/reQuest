@@ -13,6 +13,7 @@ import { CORS_ORIGIN } from './config/app'
 import { pool } from './config/db'
 import reviewQuestDraftsRouter from './routes/reviewQuestDrafts'
 import reviewQuestsRouter from './routes/reviewQuests'
+import statisticsRouter from './routes/statistics'
 import studyRecordsRouter from './routes/studyRecords'
 import subjectsRouter from './routes/subjects'
 import wrongNotesRouter from './routes/wrongNotes'
@@ -49,6 +50,11 @@ app.use(
 app.use(
   '/api/study-records',
   studyRecordsRouter,
+)
+
+app.use(
+  '/api/statistics',
+  statisticsRouter,
 )
 
 app.use(

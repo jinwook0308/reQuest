@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import { Link } from 'react-router'
 import {
   Area,
@@ -51,16 +55,37 @@ type DailyStatistics = {
   subjects: string
 }
 
-type HeatmapPoint = DailyStatistics & {
-  level: number
-  isFuture: boolean
-}
+type HeatmapPoint =
+  DailyStatistics & {
+    level: number
+    isFuture: boolean
+  }
 
 type SubjectStatistics = {
   subject: string
   recordCount: number
   totalMinutes: number
   averageUnderstanding: number
+  percentage: number
+}
+
+type GrowthStatistics = {
+  date: string
+  recordCount: number
+  totalMinutes: number
+  averageUnderstanding: number
+}
+
+type LearningStatistics = {
+  days: number
+  totalMinutes: number
+  subjects: SubjectStatistics[]
+  growth: GrowthStatistics[]
+  growthSummary: {
+    firstUnderstanding: number
+    currentUnderstanding: number
+    change: number
+  }
 }
 
 type TooltipEntry<T> = {
@@ -83,13 +108,29 @@ function formatDateKey(date: Date) {
   )}-${formatNumber(date.getDate())}`
 }
 
-function formatStudyTime(totalMinutes: number) {
+function parseDateKey(dateKey: string) {
+  const [year, month, day] =
+    dateKey.split('-').map(Number)
+
+  return new Date(
+    year,
+    month - 1,
+    day,
+  )
+}
+
+function formatStudyTime(
+  totalMinutes: number,
+) {
   if (totalMinutes <= 0) {
     return '0분'
   }
 
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
+  const hours =
+    Math.floor(totalMinutes / 60)
+
+  const minutes =
+    totalMinutes % 60
 
   if (hours === 0) {
     return `${minutes}분`
@@ -106,44 +147,71 @@ function createDailyStatistics(
   date: Date,
   records: SavedStudyRecord[],
 ): DailyStatistics {
-  const dateKey = formatDateKey(date)
+  const dateKey =
+    formatDateKey(date)
 
-  const recordsForDate = records.filter(
-    (record) => record.date === dateKey,
-  )
+  const recordsForDate =
+    records.filter(
+      (record) =>
+        record.date === dateKey,
+    )
 
-  const minutes = recordsForDate.reduce(
-    (total, record) => total + Number(record.minutes || 0),
-    0,
-  )
+  const minutes =
+    recordsForDate.reduce(
+      (total, record) =>
+        total +
+        Number(
+          record.minutes || 0,
+        ),
+      0,
+    )
 
-  const understandingTotal = recordsForDate.reduce(
-    (total, record) =>
-      total + Number(record.understanding || 0),
-    0,
-  )
+  const understandingTotal =
+    recordsForDate.reduce(
+      (total, record) =>
+        total +
+        Number(
+          record.understanding || 0,
+        ),
+      0,
+    )
 
   const averageUnderstanding =
     recordsForDate.length > 0
-      ? understandingTotal / recordsForDate.length
+      ? understandingTotal /
+        recordsForDate.length
       : null
 
   const subjects = [
-    ...new Set(recordsForDate.map((record) => record.subject)),
+    ...new Set(
+      recordsForDate.map(
+        (record) =>
+          record.subject,
+      ),
+    ),
   ].join(', ')
 
   return {
     dateKey,
-    label: `${date.getMonth() + 1}/${date.getDate()}`,
-    fullLabel: date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'short',
-    }),
+    label: `${
+      date.getMonth() + 1
+    }/${date.getDate()}`,
+    fullLabel:
+      date.toLocaleDateString(
+        'ko-KR',
+        {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          weekday: 'short',
+        },
+      ),
     minutes,
-    hours: Number((minutes / 60).toFixed(2)),
-    recordCount: recordsForDate.length,
+    hours: Number(
+      (minutes / 60).toFixed(2),
+    ),
+    recordCount:
+      recordsForDate.length,
     averageUnderstanding,
     subjects,
   }
@@ -157,99 +225,170 @@ function createRecentDailyStatistics(
 
   today.setHours(0, 0, 0, 0)
 
-  return Array.from({ length: dayCount }, (_, index) => {
-    const date = new Date(today)
+  return Array.from(
+    { length: dayCount },
+    (_, index) => {
+      const date =
+        new Date(today)
 
-    date.setDate(
-      today.getDate() - (dayCount - 1 - index),
-    )
+      date.setDate(
+        today.getDate() -
+          (dayCount - 1 - index),
+      )
 
-    return createDailyStatistics(date, records)
-  })
+      return createDailyStatistics(
+        date,
+        records,
+      )
+    },
+  )
 }
 
-function createHeatmapWeeks(records: SavedStudyRecord[]) {
+function createHeatmapWeeks(
+  records: SavedStudyRecord[],
+) {
   const today = new Date()
 
   today.setHours(0, 0, 0, 0)
 
-  const currentWeekStart = new Date(today)
+  const currentWeekStart =
+    new Date(today)
 
   currentWeekStart.setDate(
-    today.getDate() - today.getDay(),
+    today.getDate() -
+      today.getDay(),
   )
 
-  const firstWeekStart = new Date(currentWeekStart)
+  const firstWeekStart =
+    new Date(currentWeekStart)
 
   firstWeekStart.setDate(
-    currentWeekStart.getDate() - 14 * 7,
+    currentWeekStart.getDate() -
+      14 * 7,
   )
 
-  return Array.from({ length: 15 }, (_, weekIndex) =>
-    Array.from({ length: 7 }, (_, dayIndex) => {
-      const date = new Date(firstWeekStart)
+  return Array.from(
+    { length: 15 },
+    (_, weekIndex) =>
+      Array.from(
+        { length: 7 },
+        (_, dayIndex) => {
+          const date =
+            new Date(
+              firstWeekStart,
+            )
 
-      date.setDate(
-        firstWeekStart.getDate() +
-          weekIndex * 7 +
-          dayIndex,
-      )
+          date.setDate(
+            firstWeekStart.getDate() +
+              weekIndex * 7 +
+              dayIndex,
+          )
 
-      const statistics = createDailyStatistics(date, records)
-      const isFuture = date.getTime() > today.getTime()
+          const statistics =
+            createDailyStatistics(
+              date,
+              records,
+            )
 
-      let level = 0
+          const isFuture =
+            date.getTime() >
+            today.getTime()
 
-      if (!isFuture && statistics.recordCount > 0) {
-        if (statistics.minutes <= 30) {
-          level = 1
-        } else if (statistics.minutes <= 90) {
-          level = 2
-        } else if (statistics.minutes <= 180) {
-          level = 3
-        } else {
-          level = 4
-        }
-      }
+          let level = 0
 
-      return {
-        ...statistics,
-        level,
-        isFuture,
-      } satisfies HeatmapPoint
-    }),
+          if (
+            !isFuture &&
+            statistics.recordCount > 0
+          ) {
+            if (
+              statistics.minutes <= 30
+            ) {
+              level = 1
+            } else if (
+              statistics.minutes <= 90
+            ) {
+              level = 2
+            } else if (
+              statistics.minutes <= 180
+            ) {
+              level = 3
+            } else {
+              level = 4
+            }
+          }
+
+          return {
+            ...statistics,
+            level,
+            isFuture,
+          } satisfies HeatmapPoint
+        },
+      ),
   )
 }
 
-function calculateBestStreak(records: SavedStudyRecord[]) {
+function calculateBestStreak(
+  records: SavedStudyRecord[],
+) {
   const uniqueDates = [
-    ...new Set(records.map((record) => record.date)),
+    ...new Set(
+      records.map(
+        (record) =>
+          record.date,
+      ),
+    ),
   ].sort()
 
   if (uniqueDates.length === 0) {
     return 0
   }
 
-  const getDayNumber = (dateKey: string) => {
-    const [year, month, day] = dateKey
-      .split('-')
-      .map(Number)
+  const getDayNumber = (
+    dateKey: string,
+  ) => {
+    const [year, month, day] =
+      dateKey
+        .split('-')
+        .map(Number)
 
     return Math.floor(
-      Date.UTC(year, month - 1, day) / 86_400_000,
+      Date.UTC(
+        year,
+        month - 1,
+        day,
+      ) / 86_400_000,
     )
   }
 
   let currentStreak = 1
   let bestStreak = 1
 
-  for (let index = 1; index < uniqueDates.length; index += 1) {
-    const previousDay = getDayNumber(uniqueDates[index - 1])
-    const currentDay = getDayNumber(uniqueDates[index])
+  for (
+    let index = 1;
+    index < uniqueDates.length;
+    index += 1
+  ) {
+    const previousDay =
+      getDayNumber(
+        uniqueDates[index - 1],
+      )
 
-    if (currentDay - previousDay === 1) {
+    const currentDay =
+      getDayNumber(
+        uniqueDates[index],
+      )
+
+    if (
+      currentDay -
+        previousDay ===
+      1
+    ) {
       currentStreak += 1
-      bestStreak = Math.max(bestStreak, currentStreak)
+
+      bestStreak = Math.max(
+        bestStreak,
+        currentStreak,
+      )
     } else {
       currentStreak = 1
     }
@@ -260,72 +399,133 @@ function calculateBestStreak(records: SavedStudyRecord[]) {
 
 function createSubjectStatistics(
   records: SavedStudyRecord[],
-) {
-  const subjectMap = new Map<
-    string,
-    {
-      recordCount: number
-      totalMinutes: number
-      understandingTotal: number
-    }
-  >()
+): SubjectStatistics[] {
+  const subjectMap =
+    new Map<
+      string,
+      {
+        recordCount: number
+        totalMinutes: number
+        understandingTotal: number
+      }
+    >()
 
-  records.forEach((record) => {
-    const current = subjectMap.get(record.subject) ?? {
-      recordCount: 0,
-      totalMinutes: 0,
-      understandingTotal: 0,
-    }
+  records.forEach(
+    (record) => {
+      const current =
+        subjectMap.get(
+          record.subject,
+        ) ?? {
+          recordCount: 0,
+          totalMinutes: 0,
+          understandingTotal: 0,
+        }
 
-    current.recordCount += 1
-    current.totalMinutes += Number(record.minutes || 0)
-    current.understandingTotal += Number(
-      record.understanding || 0,
+      current.recordCount += 1
+
+      current.totalMinutes +=
+        Number(
+          record.minutes || 0,
+        )
+
+      current.understandingTotal +=
+        Number(
+          record.understanding || 0,
+        )
+
+      subjectMap.set(
+        record.subject,
+        current,
+      )
+    },
+  )
+
+  const totalMinutes =
+    records.reduce(
+      (total, record) =>
+        total +
+        Number(
+          record.minutes || 0,
+        ),
+      0,
     )
 
-    subjectMap.set(record.subject, current)
-  })
-
-  return [...subjectMap.entries()]
-    .map(([subject, statistics]) => ({
-      subject,
-      recordCount: statistics.recordCount,
-      totalMinutes: statistics.totalMinutes,
-      averageUnderstanding:
-        statistics.recordCount > 0
-          ? statistics.understandingTotal /
-            statistics.recordCount
-          : 0,
-    }))
+  return [
+    ...subjectMap.entries(),
+  ]
+    .map(
+      ([
+        subject,
+        statistics,
+      ]) => ({
+        subject,
+        recordCount:
+          statistics.recordCount,
+        totalMinutes:
+          statistics.totalMinutes,
+        averageUnderstanding:
+          statistics.recordCount > 0
+            ? statistics.understandingTotal /
+              statistics.recordCount
+            : 0,
+        percentage:
+          totalMinutes > 0
+            ? Number(
+                (
+                  (statistics.totalMinutes /
+                    totalMinutes) *
+                  100
+                ).toFixed(1),
+              )
+            : 0,
+      }),
+    )
     .sort(
-      (firstSubject, secondSubject) =>
+      (
+        firstSubject,
+        secondSubject,
+      ) =>
         secondSubject.totalMinutes -
         firstSubject.totalMinutes,
-    ) satisfies SubjectStatistics[]
+    )
 }
 
 function StudyTimeTooltip({
   active,
   payload,
 }: ChartTooltipProps<DailyStatistics>) {
-  if (!active || !payload?.length) {
+  if (
+    !active ||
+    !payload?.length
+  ) {
     return null
   }
 
-  const statistics = payload[0].payload
+  const statistics =
+    payload[0].payload
 
   return (
     <div className="statistics-chart-tooltip">
-      <strong>{statistics.fullLabel}</strong>
+      <strong>
+        {statistics.fullLabel}
+      </strong>
 
       <span>
-        학습시간 {formatStudyTime(statistics.minutes)}
+        학습시간{' '}
+        {formatStudyTime(
+          statistics.minutes,
+        )}
       </span>
 
-      <span>학습 기록 {statistics.recordCount}개</span>
+      <span>
+        학습 기록{' '}
+        {statistics.recordCount}개
+      </span>
 
       {statistics.subjects && (
-        <span>과목 {statistics.subjects}</span>
+        <span>
+          과목 {statistics.subjects}
+        </span>
       )}
     </div>
   )
@@ -335,64 +535,147 @@ function UnderstandingTooltip({
   active,
   payload,
 }: ChartTooltipProps<DailyStatistics>) {
-  if (!active || !payload?.length) {
+  if (
+    !active ||
+    !payload?.length
+  ) {
     return null
   }
 
-  const statistics = payload[0].payload
+  const statistics =
+    payload[0].payload
 
-  if (statistics.averageUnderstanding === null) {
+  if (
+    statistics.averageUnderstanding ===
+    null
+  ) {
     return null
   }
 
   return (
     <div className="statistics-chart-tooltip">
-      <strong>{statistics.fullLabel}</strong>
+      <strong>
+        {statistics.fullLabel}
+      </strong>
 
       <span>
         평균 이해도{' '}
-        {statistics.averageUnderstanding.toFixed(1)} / 5
+        {statistics.averageUnderstanding.toFixed(
+          1,
+        )}{' '}
+        / 5
       </span>
 
-      <span>학습 기록 {statistics.recordCount}개</span>
+      <span>
+        학습 기록{' '}
+        {statistics.recordCount}개
+      </span>
+    </div>
+  )
+}
 
-      {statistics.subjects && (
-        <span>과목 {statistics.subjects}</span>
-      )}
+function SubjectTimeTooltip({
+  active,
+  payload,
+}: ChartTooltipProps<SubjectStatistics>) {
+  if (
+    !active ||
+    !payload?.length
+  ) {
+    return null
+  }
+
+  const subject =
+    payload[0].payload
+
+  return (
+    <div className="statistics-chart-tooltip">
+      <strong>
+        {subject.subject}
+      </strong>
+
+      <span>
+        학습시간{' '}
+        {formatStudyTime(
+          subject.totalMinutes,
+        )}
+      </span>
+
+      <span>
+        전체 학습의{' '}
+        {subject.percentage}%
+      </span>
+
+      <span>
+        평균 이해도{' '}
+        {subject.averageUnderstanding.toFixed(
+          1,
+        )}{' '}
+        / 5
+      </span>
     </div>
   )
 }
 
 function StatisticsPage() {
-  const [records, setRecords] = useState<
+  const [
+    records,
+    setRecords,
+  ] = useState<
     SavedStudyRecord[]
   >([])
 
+  const [
+    learningStatistics,
+    setLearningStatistics,
+  ] =
+    useState<LearningStatistics | null>(
+      null,
+    )
+
   useEffect(() => {
-    const controller = new AbortController()
+    const controller =
+      new AbortController()
 
     async function loadSavedRecords() {
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/study-records`,
-          { signal: controller.signal },
-        )
-        const result = (await response.json()) as {
-          success: boolean
-          message?: string
-          data?: Array<
-            Omit<
-              SavedStudyRecord,
-              'id' | 'minutes' | 'understanding'
-            > & {
-              id: number | string
-              minutes: number | string
-              understanding: number | string
-            }
-          >
-        }
+        const response =
+          await fetch(
+            `${API_BASE_URL}/study-records`,
+            {
+              signal:
+                controller.signal,
+            },
+          )
 
-        if (!response.ok || !result.success) {
+        const result =
+          (await response.json()) as {
+            success: boolean
+            message?: string
+            data?: Array<
+              Omit<
+                SavedStudyRecord,
+                | 'id'
+                | 'minutes'
+                | 'understanding'
+              > & {
+                id:
+                  | number
+                  | string
+                minutes:
+                  | number
+                  | string
+                understanding:
+                  | number
+                  | string
+              }
+            >
+          }
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
           throw new Error(
             result.message ??
               '통계 데이터를 불러오지 못했습니다.',
@@ -400,19 +683,30 @@ function StatisticsPage() {
         }
 
         setRecords(
-          (result.data ?? []).map((record) => ({
-            ...record,
-            id: Number(record.id),
-            minutes: String(record.minutes),
-            understanding: Number(
-              record.understanding,
-            ),
-          })),
+          (
+            result.data ?? []
+          ).map(
+            (record) => ({
+              ...record,
+              id: Number(
+                record.id,
+              ),
+              minutes: String(
+                record.minutes,
+              ),
+              understanding:
+                Number(
+                  record.understanding,
+                ),
+            }),
+          ),
         )
       } catch (error) {
         if (
-          error instanceof DOMException &&
-          error.name === 'AbortError'
+          error instanceof
+            DOMException &&
+          error.name ===
+            'AbortError'
         ) {
           return
         }
@@ -421,55 +715,228 @@ function StatisticsPage() {
           '통계 데이터를 불러오지 못했습니다.',
           error,
         )
+
         setRecords([])
       }
     }
 
     void loadSavedRecords()
 
-    return () => controller.abort()
+    return () => {
+      controller.abort()
+    }
   }, [])
 
-  const recentStatistics = useMemo(
-    () => createRecentDailyStatistics(records, 14),
-    [records],
-  )
+  useEffect(() => {
+    const controller =
+      new AbortController()
 
-  const heatmapWeeks = useMemo(
-    () => createHeatmapWeeks(records),
-    [records],
-  )
+    async function loadLearningStatistics() {
+      try {
+        const response =
+          await fetch(
+            `${API_BASE_URL}/statistics/learning?days=30`,
+            {
+              signal:
+                controller.signal,
+            },
+          )
 
-  const subjectStatistics = useMemo(
-    () => createSubjectStatistics(records),
-    [records],
-  )
+        const result =
+          (await response.json()) as {
+            success: boolean
+            message?: string
+            data?: LearningStatistics
+          }
 
-  const totalMinutes = records.reduce(
-    (total, record) => total + Number(record.minutes || 0),
-    0,
-  )
+        if (
+          !response.ok ||
+          !result.success ||
+          !result.data
+        ) {
+          throw new Error(
+            result.message ??
+              '학습 통계를 불러오지 못했습니다.',
+          )
+        }
 
-  const activeDays = new Set(
-    records.map((record) => record.date),
-  ).size
+        setLearningStatistics(
+          result.data,
+        )
+      } catch (error) {
+        if (
+          error instanceof
+            DOMException &&
+          error.name ===
+            'AbortError'
+        ) {
+          return
+        }
+
+        console.error(
+          '과목별 통계 조회 실패:',
+          error,
+        )
+
+        setLearningStatistics(
+          null,
+        )
+      }
+    }
+
+    void loadLearningStatistics()
+
+    return () => {
+      controller.abort()
+    }
+  }, [])
+
+  const recentStatistics =
+    useMemo(
+      () =>
+        createRecentDailyStatistics(
+          records,
+          14,
+        ),
+      [records],
+    )
+
+  const heatmapWeeks =
+    useMemo(
+      () =>
+        createHeatmapWeeks(
+          records,
+        ),
+      [records],
+    )
+
+  const localSubjectStatistics =
+    useMemo(
+      () =>
+        createSubjectStatistics(
+          records,
+        ),
+      [records],
+    )
+
+  const subjectStatistics =
+    learningStatistics?.subjects ??
+    localSubjectStatistics
+
+  const growthStatistics =
+    useMemo(() => {
+      if (
+        !learningStatistics?.growth
+          .length
+      ) {
+        return recentStatistics
+      }
+
+      return learningStatistics.growth.map(
+        (growth) => {
+          const date =
+            parseDateKey(
+              growth.date,
+            )
+
+          return {
+            dateKey: growth.date,
+            label: `${
+              date.getMonth() + 1
+            }/${date.getDate()}`,
+            fullLabel:
+              date.toLocaleDateString(
+                'ko-KR',
+                {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  weekday:
+                    'short',
+                },
+              ),
+            minutes:
+              growth.totalMinutes,
+            hours: Number(
+              (
+                growth.totalMinutes /
+                60
+              ).toFixed(2),
+            ),
+            recordCount:
+              growth.recordCount,
+            averageUnderstanding:
+              growth.averageUnderstanding,
+            subjects: '',
+          } satisfies DailyStatistics
+        },
+      )
+    }, [
+      learningStatistics,
+      recentStatistics,
+    ])
+
+  const totalMinutes =
+    records.reduce(
+      (total, record) =>
+        total +
+        Number(
+          record.minutes || 0,
+        ),
+      0,
+    )
+
+  const recentTotalMinutes =
+    recentStatistics.reduce(
+      (total, day) =>
+        total + day.minutes,
+      0,
+    )
+
+  const activeDays =
+    new Set(
+      records.map(
+        (record) =>
+          record.date,
+      ),
+    ).size
 
   const averageUnderstanding =
     records.length > 0
       ? records.reduce(
           (total, record) =>
-            total + Number(record.understanding || 0),
+            total +
+            Number(
+              record.understanding ||
+                0,
+            ),
           0,
         ) / records.length
       : 0
 
-  const bestStreak = calculateBestStreak(records)
+  const currentGrowthUnderstanding =
+    learningStatistics
+      ?.growthSummary
+      .currentUnderstanding ??
+    averageUnderstanding
+
+  const growthChange =
+    learningStatistics
+      ?.growthSummary.change ?? 0
+
+  const bestStreak =
+    calculateBestStreak(
+      records,
+    )
 
   return (
     <main className="statistics-page">
       <div className="statistics-container">
         <div className="statistics-topbar">
-          <Link className="statistics-back-link" to="/">
+          <Link
+            className="statistics-back-link"
+            to="/"
+          >
             <ArrowLeft size={17} />
             이번 주로 돌아가기
           </Link>
@@ -496,7 +963,8 @@ function StatisticsPage() {
             <h1>나의 학습 통계</h1>
 
             <p>
-              저장한 학습 기록을 바탕으로 공부 흐름과
+              저장한 학습 기록을 바탕으로
+              공부 흐름과
               <br />
               이해도 변화를 확인해 보세요.
             </p>
@@ -508,17 +976,31 @@ function StatisticsPage() {
             <Clock3 size={21} />
 
             <div>
-              <span>총 학습시간</span>
-              <strong>{formatStudyTime(totalMinutes)}</strong>
+              <span>
+                총 학습시간
+              </span>
+
+              <strong>
+                {formatStudyTime(
+                  totalMinutes,
+                )}
+              </strong>
             </div>
           </div>
 
           <div className="statistics-summary-card">
-            <CalendarDays size={21} />
+            <CalendarDays
+              size={21}
+            />
 
             <div>
-              <span>활동한 날짜</span>
-              <strong>{activeDays}일</strong>
+              <span>
+                활동한 날짜
+              </span>
+
+              <strong>
+                {activeDays}일
+              </strong>
             </div>
           </div>
 
@@ -526,9 +1008,15 @@ function StatisticsPage() {
             <Star size={21} />
 
             <div>
-              <span>평균 이해도</span>
+              <span>
+                평균 이해도
+              </span>
+
               <strong>
-                {averageUnderstanding.toFixed(1)} / 5
+                {averageUnderstanding.toFixed(
+                  1,
+                )}{' '}
+                / 5
               </strong>
             </div>
           </div>
@@ -537,8 +1025,13 @@ function StatisticsPage() {
             <Flame size={21} />
 
             <div>
-              <span>최고 연속 기록</span>
-              <strong>{bestStreak}일</strong>
+              <span>
+                최고 연속 기록
+              </span>
+
+              <strong>
+                {bestStreak}일
+              </strong>
             </div>
           </div>
         </section>
@@ -547,17 +1040,32 @@ function StatisticsPage() {
           <article className="statistics-card">
             <div className="statistics-card-heading">
               <div>
-                <h2>최근 14일 학습시간</h2>
-                <p>날짜별로 저장된 총 학습시간입니다.</p>
+                <h2>
+                  최근 14일 학습시간
+                </h2>
+
+                <p>
+                  날짜별로 저장된 총
+                  학습시간입니다.
+                </p>
               </div>
 
-              <strong>{formatStudyTime(totalMinutes)}</strong>
+              <strong>
+                {formatStudyTime(
+                  recentTotalMinutes,
+                )}
+              </strong>
             </div>
 
             <div className="statistics-chart">
-              <ResponsiveContainer width="100%" height={245}>
+              <ResponsiveContainer
+                width="100%"
+                height={245}
+              >
                 <BarChart
-                  data={recentStatistics}
+                  data={
+                    recentStatistics
+                  }
                   barCategoryGap="32%"
                 >
                   <CartesianGrid
@@ -584,21 +1092,33 @@ function StatisticsPage() {
                       fontSize: 10,
                       fill: '#99958d',
                     }}
-                    tickFormatter={(value) =>
-                      value === 0 ? '0' : `${value}h`
+                    tickFormatter={(
+                      value,
+                    ) =>
+                      value === 0
+                        ? '0'
+                        : `${value}h`
                     }
                   />
 
                   <Tooltip
-                    content={<StudyTimeTooltip />}
-                    cursor={{ fill: '#faf5e9' }}
+                    content={
+                      <StudyTimeTooltip />
+                    }
+                    cursor={{
+                      fill: '#faf5e9',
+                    }}
                   />
 
                   <Bar
                     dataKey="hours"
                     fill="#1c1c1a"
-                    radius={[4, 4, 0, 0]}
-                    
+                    radius={[
+                      4,
+                      4,
+                      0,
+                      0,
+                    ]}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -608,18 +1128,43 @@ function StatisticsPage() {
           <article className="statistics-card">
             <div className="statistics-card-heading">
               <div>
-                <h2>이해도 변화</h2>
-                <p>최근 14일의 평균 이해도입니다.</p>
+                <h2>
+                  나의 성장 추이
+                </h2>
+
+                <p>
+                  최근 30일의 개인 평균
+                  이해도입니다.
+                  {growthChange > 0 &&
+                    ` 이전보다 ${growthChange.toFixed(
+                      1,
+                    )}점 상승했어요.`}
+                  {growthChange < 0 &&
+                    ` 이전보다 ${Math.abs(
+                      growthChange,
+                    ).toFixed(
+                      1,
+                    )}점 낮아졌어요.`}
+                </p>
               </div>
 
               <strong>
-                {averageUnderstanding.toFixed(1)}
+                {currentGrowthUnderstanding.toFixed(
+                  1,
+                )}
               </strong>
             </div>
 
             <div className="statistics-chart">
-              <ResponsiveContainer width="100%" height={245}>
-                <AreaChart data={recentStatistics}>
+              <ResponsiveContainer
+                width="100%"
+                height={245}
+              >
+                <AreaChart
+                  data={
+                    growthStatistics
+                  }
+                >
                   <defs>
                     <linearGradient
                       id="understandingFill"
@@ -631,7 +1176,9 @@ function StatisticsPage() {
                       <stop
                         offset="0%"
                         stopColor="#d9942b"
-                        stopOpacity={0.24}
+                        stopOpacity={
+                          0.24
+                        }
                       />
 
                       <stop
@@ -651,7 +1198,6 @@ function StatisticsPage() {
                     dataKey="label"
                     axisLine={false}
                     tickLine={false}
-                    interval={2}
                     tick={{
                       fontSize: 11,
                       fill: '#99958d',
@@ -660,7 +1206,9 @@ function StatisticsPage() {
 
                   <YAxis
                     domain={[1, 5]}
-                    allowDecimals={false}
+                    allowDecimals={
+                      false
+                    }
                     axisLine={false}
                     tickLine={false}
                     width={25}
@@ -671,7 +1219,9 @@ function StatisticsPage() {
                   />
 
                   <Tooltip
-                    content={<UnderstandingTooltip />}
+                    content={
+                      <UnderstandingTooltip />
+                    }
                   />
 
                   <Area
@@ -684,11 +1234,12 @@ function StatisticsPage() {
                     dot={{
                       fill: '#d9942b',
                       strokeWidth: 0,
-                      r: 3,
+                      r: 4,
                     }}
                     activeDot={{
                       fill: '#1c1c1a',
-                      stroke: '#ffffff',
+                      stroke:
+                        '#ffffff',
                       strokeWidth: 2,
                       r: 5,
                     }}
@@ -702,16 +1253,35 @@ function StatisticsPage() {
         <section className="statistics-card statistics-heatmap-card">
           <div className="statistics-card-heading">
             <div>
-              <h2>학습 히트맵</h2>
-              <p>최근 15주의 날짜별 학습 활동입니다.</p>
+              <h2>
+                학습 히트맵
+              </h2>
+
+              <p>
+                최근 15주의 날짜별
+                학습 활동입니다.
+              </p>
             </div>
 
             <div className="statistics-heatmap-legend">
               <span>적음</span>
 
-              {[0, 1, 2, 3, 4].map((level) => (
-                <i data-level={level} key={level} />
-              ))}
+              {[
+                0,
+                1,
+                2,
+                3,
+                4,
+              ].map(
+                (level) => (
+                  <i
+                    data-level={
+                      level
+                    }
+                    key={level}
+                  />
+                ),
+              )}
 
               <span>많음</span>
             </div>
@@ -719,73 +1289,120 @@ function StatisticsPage() {
 
           <div className="statistics-heatmap-scroll">
             <div className="statistics-heatmap-grid">
-              {heatmapWeeks.map((week, weekIndex) => (
-                <div
-                  className="statistics-heatmap-week"
-                  key={weekIndex}
-                >
-                  {week.map((point) => (
-                    <button
-                      type="button"
-                      className="statistics-heatmap-cell"
-                      data-level={point.level}
-                      data-future={point.isFuture}
-                      key={point.dateKey}
-                      title={`${point.fullLabel} · ${formatStudyTime(
-                        point.minutes,
-                      )} · 기록 ${point.recordCount}개`}
-                      aria-label={`${point.fullLabel}, 학습시간 ${formatStudyTime(
-                        point.minutes,
-                      )}, 기록 ${point.recordCount}개`}
-                    >
-                      {!point.isFuture && (
-                        <span className="statistics-heatmap-tooltip">
-                          <strong>{point.fullLabel}</strong>
-                          <span>
-                            학습시간{' '}
-                            {formatStudyTime(point.minutes)}
-                          </span>
-                          <span>
-                            학습 기록 {point.recordCount}개
-                          </span>
+              {heatmapWeeks.map(
+                (
+                  week,
+                  weekIndex,
+                ) => (
+                  <div
+                    className="statistics-heatmap-week"
+                    key={
+                      weekIndex
+                    }
+                  >
+                    {week.map(
+                      (point) => (
+                        <button
+                          type="button"
+                          className="statistics-heatmap-cell"
+                          data-level={
+                            point.level
+                          }
+                          data-future={
+                            point.isFuture
+                          }
+                          key={
+                            point.dateKey
+                          }
+                          title={`${point.fullLabel} · ${formatStudyTime(
+                            point.minutes,
+                          )} · 기록 ${point.recordCount}개`}
+                          aria-label={`${point.fullLabel}, 학습시간 ${formatStudyTime(
+                            point.minutes,
+                          )}, 기록 ${point.recordCount}개`}
+                        >
+                          {!point.isFuture && (
+                            <span className="statistics-heatmap-tooltip">
+                              <strong>
+                                {
+                                  point.fullLabel
+                                }
+                              </strong>
 
-                          {point.averageUnderstanding !== null && (
-                            <span>
-                              평균 이해도{' '}
-                              {point.averageUnderstanding.toFixed(
-                                1,
-                              )}{' '}
-                              / 5
+                              <span>
+                                학습시간{' '}
+                                {formatStudyTime(
+                                  point.minutes,
+                                )}
+                              </span>
+
+                              <span>
+                                학습 기록{' '}
+                                {
+                                  point.recordCount
+                                }
+                                개
+                              </span>
+
+                              {point.averageUnderstanding !==
+                                null && (
+                                <span>
+                                  평균
+                                  이해도{' '}
+                                  {point.averageUnderstanding.toFixed(
+                                    1,
+                                  )}{' '}
+                                  / 5
+                                </span>
+                              )}
                             </span>
                           )}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              ))}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                ),
+              )}
             </div>
           </div>
 
           <div className="statistics-heatmap-summary">
             <div>
-              <strong>{activeDays}</strong>
-              <span>활동한 날짜</span>
+              <strong>
+                {activeDays}
+              </strong>
+              <span>
+                활동한 날짜
+              </span>
             </div>
 
             <div>
-              <strong>{bestStreak}일</strong>
-              <span>최고 연속 기록</span>
+              <strong>
+                {bestStreak}일
+              </strong>
+              <span>
+                최고 연속 기록
+              </span>
             </div>
 
             <div>
-              <strong>{records.length}개</strong>
-              <span>전체 학습 기록</span>
+              <strong>
+                {records.length}개
+              </strong>
+              <span>
+                전체 학습 기록
+              </span>
             </div>
 
             <div>
-              <strong>{formatStudyTime(totalMinutes)}</strong>
-              <span>총 학습시간</span>
+              <strong>
+                {formatStudyTime(
+                  totalMinutes,
+                )}
+              </strong>
+              <span>
+                총 학습시간
+              </span>
             </div>
           </div>
         </section>
@@ -793,67 +1410,199 @@ function StatisticsPage() {
         <section className="statistics-card statistics-subject-card">
           <div className="statistics-card-heading">
             <div>
-              <h2>과목별 학습 현황</h2>
-              <p>과목별 학습시간과 이해도를 비교합니다.</p>
+              <h2>
+                과목별 공부시간
+              </h2>
+
+              <p>
+                최근 30일 동안 어떤 과목을
+                얼마나 공부했는지 비교합니다.
+              </p>
             </div>
+
+            <strong>
+              {formatStudyTime(
+                learningStatistics
+                  ?.totalMinutes ??
+                  totalMinutes,
+              )}
+            </strong>
           </div>
 
-          {subjectStatistics.length === 0 ? (
+          {subjectStatistics.length ===
+          0 ? (
             <div className="statistics-empty">
-              아직 통계로 표시할 학습 기록이 없습니다.
+              아직 통계로 표시할 학습
+              기록이 없습니다.
             </div>
           ) : (
-            <div className="statistics-table-scroll">
-              <table className="statistics-subject-table">
-                <thead>
-                  <tr>
-                    <th>과목</th>
-                    <th>기록 수</th>
-                    <th>학습시간</th>
-                    <th>평균 이해도</th>
-                    <th>이해도 분포</th>
-                  </tr>
-                </thead>
+            <>
+              <div className="statistics-chart">
+                <ResponsiveContainer
+                  width="100%"
+                  height={Math.max(
+                    230,
+                    subjectStatistics.length *
+                      58,
+                  )}
+                >
+                  <BarChart
+                    data={
+                      subjectStatistics
+                    }
+                    layout="vertical"
+                    margin={{
+                      top: 10,
+                      right: 25,
+                      bottom: 10,
+                      left: 5,
+                    }}
+                  >
+                    <CartesianGrid
+                      stroke="#e8e3da"
+                      horizontal={
+                        false
+                      }
+                    />
 
-                <tbody>
-                  {subjectStatistics.map((subject) => (
-                    <tr key={subject.subject}>
-                      <td>
-                        <strong>{subject.subject}</strong>
-                      </td>
+                    <XAxis
+                      type="number"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{
+                        fontSize: 11,
+                        fill: '#99958d',
+                      }}
+                      tickFormatter={(
+                        value,
+                      ) =>
+                        formatStudyTime(
+                          Number(
+                            value,
+                          ),
+                        )
+                      }
+                    />
 
-                      <td>{subject.recordCount}개</td>
+                    <YAxis
+                      type="category"
+                      dataKey="subject"
+                      axisLine={false}
+                      tickLine={false}
+                      width={75}
+                      tick={{
+                        fontSize: 12,
+                        fill: '#57544d',
+                      }}
+                    />
 
-                      <td>
-                        {formatStudyTime(
-                          subject.totalMinutes,
-                        )}
-                      </td>
+                    <Tooltip
+                      content={
+                        <SubjectTimeTooltip />
+                      }
+                      cursor={{
+                        fill: '#faf5e9',
+                      }}
+                    />
 
-                      <td>
-                        {subject.averageUnderstanding.toFixed(
-                          1,
-                        )}{' '}
-                        / 5
-                      </td>
+                    <Bar
+                      dataKey="totalMinutes"
+                      fill="#1c1c1a"
+                      radius={[
+                        0,
+                        5,
+                        5,
+                        0,
+                      ]}
+                      barSize={22}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
 
-                      <td>
-                        <div className="statistics-subject-progress">
-                          <span
-                            style={{
-                              width: `${
-                                subject.averageUnderstanding *
-                                20
-                              }%`,
-                            }}
-                          />
-                        </div>
-                      </td>
+              <div className="statistics-table-scroll">
+                <table className="statistics-subject-table">
+                  <thead>
+                    <tr>
+                      <th>과목</th>
+                      <th>기록 수</th>
+                      <th>
+                        학습시간
+                      </th>
+                      <th>
+                        학습 비율
+                      </th>
+                      <th>
+                        평균 이해도
+                      </th>
+                      <th>
+                        이해도 분포
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+
+                  <tbody>
+                    {subjectStatistics.map(
+                      (subject) => (
+                        <tr
+                          key={
+                            subject.subject
+                          }
+                        >
+                          <td>
+                            <strong>
+                              {
+                                subject.subject
+                              }
+                            </strong>
+                          </td>
+
+                          <td>
+                            {
+                              subject.recordCount
+                            }
+                            개
+                          </td>
+
+                          <td>
+                            {formatStudyTime(
+                              subject.totalMinutes,
+                            )}
+                          </td>
+
+                          <td>
+                            {
+                              subject.percentage
+                            }
+                            %
+                          </td>
+
+                          <td>
+                            {subject.averageUnderstanding.toFixed(
+                              1,
+                            )}{' '}
+                            / 5
+                          </td>
+
+                          <td>
+                            <div className="statistics-subject-progress">
+                              <span
+                                style={{
+                                  width: `${
+                                    subject.averageUnderstanding *
+                                    20
+                                  }%`,
+                                }}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      ),
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </section>
       </div>
