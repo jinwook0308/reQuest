@@ -24,6 +24,7 @@ export interface ReviewQuestSource {
   correctAnswer: string
   mistakeReason: string
   concepts: string
+  wrongImagePath?: string | null
 }
 
 function firstNonEmpty(

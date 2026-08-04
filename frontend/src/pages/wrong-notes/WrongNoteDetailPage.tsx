@@ -790,6 +790,16 @@ function WrongNoteDetailPage() {
             목록으로 돌아가기
           </Link>
 
+          {status !== 'not-generated' && (
+            <Link
+              className="wrong-note-detail-list-button"
+              to={`/quest-review/wrong-note/${wrongNote.id}`}
+            >
+              <Sparkles size={18} />
+              AI 문제 다시 만들기
+            </Link>
+          )}
+
           <Link
             className="wrong-note-detail-quest-button"
             to={questButtonTarget}

@@ -7,12 +7,27 @@ import { z } from 'zod'
 
 import { APP_USER_EMAIL } from '../config/app'
 import { pool } from '../config/db'
+import { isOpenAIConfigured } from '../config/openai'
+import {
+  createOpenAIReviewQuestions,
+} from '../services/openAiReviewQuestGenerator'
 import {
   createRuleBasedReviewQuestions,
+  type ReviewQuestionDraft,
   type ReviewQuestSource,
 } from '../services/reviewQuestGenerator'
 
 const reviewQuestDraftsRouter = Router()
+
+type ReviewQuestionGenerator =
+  | 'openai'
+  | 'rule-based'
+  | 'rule-based-fallback'
+
+interface GeneratedReviewQuestions {
+  generator: ReviewQuestionGenerator
+  questions: ReviewQuestionDraft[]
+}
 
 const sourceParamsSchema = z.object({
   sourceType: z.enum([
@@ -47,7 +62,9 @@ async function loadSource(
               AS "correctAnswer",
             wrong_notes.mistake_reason
               AS "mistakeReason",
-            wrong_notes.concepts
+            wrong_notes.concepts,
+            wrong_notes.wrong_image_path
+              AS "wrongImagePath"
 
           FROM wrong_notes
 
@@ -75,7 +92,8 @@ async function loadSource(
             '' AS "wrongAnswer",
             '' AS "correctAnswer",
             '' AS "mistakeReason",
-            '' AS concepts
+            '' AS concepts,
+            NULL::TEXT AS "wrongImagePath"
 
           FROM study_records
 
@@ -102,6 +120,55 @@ async function loadSource(
       | ReviewQuestSource
       | undefined
   )
+}
+
+function getErrorMessage(
+  error: unknown,
+) {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  return '알 수 없는 AI 오류'
+}
+
+async function generateReviewQuestions(
+  source: ReviewQuestSource,
+): Promise<GeneratedReviewQuestions> {
+  if (!isOpenAIConfigured) {
+    return {
+      generator: 'rule-based',
+      questions:
+        createRuleBasedReviewQuestions(
+          source,
+        ),
+    }
+  }
+
+  try {
+    const questions =
+      await createOpenAIReviewQuestions(
+        source,
+      )
+
+    return {
+      generator: 'openai',
+      questions,
+    }
+  } catch (error) {
+    console.warn(
+      'OpenAI 문제 생성 실패, 규칙 기반 생성기로 전환:',
+      getErrorMessage(error),
+    )
+
+    return {
+      generator: 'rule-based-fallback',
+      questions:
+        createRuleBasedReviewQuestions(
+          source,
+        ),
+    }
+  }
 }
 
 /**
@@ -148,19 +215,28 @@ reviewQuestDraftsRouter.post(
         return
       }
 
-      const questions =
-        createRuleBasedReviewQuestions(
-          source,
-        )
+      const {
+        generator,
+        questions,
+      } = await generateReviewQuestions(
+        source,
+      )
+
+      const message =
+        generator === 'openai'
+          ? 'AI가 검토할 복습 문제 초안을 생성했습니다.'
+          : generator ===
+              'rule-based-fallback'
+            ? 'AI 연결을 사용하지 못해 기본 복습 문제를 생성했습니다.'
+            : '검토할 기본 복습 문제 초안이 생성되었습니다.'
 
       response.status(200).json({
         success: true,
-        message:
-          '검토할 복습 문제 초안이 생성되었습니다.',
+        message,
         data: {
           sourceType,
           sourceId,
-          generator: 'rule-based',
+          generator,
           questions,
         },
       })
