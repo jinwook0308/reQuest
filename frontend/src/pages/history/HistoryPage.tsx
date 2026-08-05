@@ -1,29 +1,31 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
+  Brain,
+  Calendar,
   CalendarDays,
+  CheckCircle2,
   Clock3,
+  FileText,
   Plus,
   Search,
   Star,
   Trash2,
-  Calendar,
-  CheckCircle2,
   X,
 } from 'lucide-react'
 
+import SubjectBookshelf, {
+  type SubjectBookItem,
+} from '../../components/subject-bookshelf/SubjectBookshelf'
+
 import './HistoryPage.css'
+import '../ai-review/AireviewPage.css'
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:4000/api'
+  import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api'
 
 type SavedStudyRecord = {
   id: number
@@ -38,17 +40,13 @@ type SavedStudyRecord = {
   createdAt?: string
 }
 
-type StudyRecordApiItem = {
+type StudyRecordApiItem = Omit<
+  SavedStudyRecord,
+  'id' | 'minutes' | 'understanding'
+> & {
   id: string | number
-  date: string
-  subject: string
-  unit: string
   minutes: string | number
-  learned: string
-  difficult: string
-  keywords: string
   understanding: string | number
-  createdAt?: string
 }
 
 type StudyRecordsApiResponse = {
@@ -62,6 +60,17 @@ type DeleteStudyRecordApiResponse = {
   message?: string
 }
 
+type SubjectApiItem = {
+  id: string | number
+  name: string
+}
+
+type SubjectsApiResponse = {
+  success: boolean
+  message?: string
+  data?: SubjectApiItem[]
+}
+
 const understandingLabels: Record<number, string> = {
   1: '어려워요',
   2: '조금 어려워요',
@@ -70,7 +79,8 @@ const understandingLabels: Record<number, string> = {
   5: '완벽해요',
 }
 
-// --- 날짜 계산 및 동기화 유틸리티 ---
+const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토']
+
 function formatNumber(value: number) {
   return String(value).padStart(2, '0')
 }
@@ -90,9 +100,7 @@ function isSameDate(firstDate: Date, secondDate: Date) {
 }
 
 function formatRecordDate(date: string) {
-  const recordDate = new Date(`${date}T00:00:00`)
-
-  return recordDate.toLocaleDateString('ko-KR', {
+  return new Date(`${date}T00:00:00`).toLocaleDateString('ko-KR', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -100,15 +108,10 @@ function formatRecordDate(date: string) {
   })
 }
 
-function formatStudyTime(
-  minutes: number | string,
-) {
+function formatStudyTime(minutes: number | string) {
   const totalMinutes = Number(minutes)
 
-  if (
-    !Number.isFinite(totalMinutes) ||
-    totalMinutes <= 0
-  ) {
+  if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) {
     return '0분'
   }
 
@@ -126,176 +129,155 @@ function formatStudyTime(
   return `${hours}시간 ${remainingMinutes}분`
 }
 
-const DAY_NAMES = [
-  '일',
-  '월',
-  '화',
-  '수',
-  '목',
-  '금',
-  '토',
-]
-
 function HistoryPage() {
-  const [records, setRecords] = useState<
-    SavedStudyRecord[]
+  const [records, setRecords] = useState<SavedStudyRecord[]>([])
+  const [availableSubjects, setAvailableSubjects] = useState<
+    Array<{ id: string; name: string }>
   >([])
-
   const [loadStatus, setLoadStatus] = useState<
     'loading' | 'success' | 'error'
   >('loading')
-
-  const [searchText, setSearchText] =
-    useState('')
-
-  const [subjectFilter, setSubjectFilter] =
-    useState('전체')
-
-  // 날짜 기본값 설정
-  const today = useMemo(() => new Date(), [])
-  const todayKey = useMemo(
-    () => formatDateKey(today),
-    [today],
+  const [loadMessage, setLoadMessage] = useState('')
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(
+    null,
   )
+  const [searchText, setSearchText] = useState('')
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+
+  const today = useMemo(() => new Date(), [])
+  const todayKey = useMemo(() => formatDateKey(today), [today])
   const currentYear = today.getFullYear()
   const currentMonth = today.getMonth()
 
-  // 선택된 날짜
-  const [selectedDate, setSelectedDate] =
-    useState<string | null>(null)
-
-  const monthDays = useMemo(() => {
-    const totalDaysInMonth = new Date(
-      currentYear,
-      currentMonth + 1,
-      0,
-    ).getDate()
-
-    return Array.from(
-      { length: totalDaysInMonth },
-      (_, index) => {
-        const dayNumber = index + 1
-        const dateObj = new Date(
-          currentYear,
-          currentMonth,
-          dayNumber,
-        )
-        const dateKey = formatDateKey(dateObj)
-
-        const hasRecord = records.some(
-          (record) =>
-            record.date === dateKey,
-        )
-
-        return {
-          dateKey,
-          dayName:
-            DAY_NAMES[dateObj.getDay()],
-          date: String(dayNumber),
-          active: hasRecord,
-          today: isSameDate(
-            dateObj,
-            today,
-          ),
-          selected:
-            selectedDate === dateKey,
-        }
-      },
-    )
-  }, [
-    currentYear,
-    currentMonth,
-    records,
-    today,
-    selectedDate,
-  ])
-
   useEffect(() => {
-    let ignoreResult = false
+    const controller = new AbortController()
 
-    const loadRecords = async () => {
+    async function loadRecords() {
       setLoadStatus('loading')
+      setLoadMessage('')
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/study-records`,
-        )
-
-        const result =
-          (await response.json()) as StudyRecordsApiResponse
+        const [recordsResponse, subjectsResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/study-records`, {
+            signal: controller.signal,
+          }),
+          fetch(`${API_BASE_URL}/subjects`, {
+            signal: controller.signal,
+          }),
+        ])
+        const recordsResult =
+          (await recordsResponse.json()) as StudyRecordsApiResponse
+        const subjectsResult =
+          (await subjectsResponse.json()) as SubjectsApiResponse
 
         if (
-          !response.ok ||
-          !result.success ||
-          !result.data
+          !recordsResponse.ok ||
+          !recordsResult.success ||
+          !recordsResult.data
         ) {
           throw new Error(
-            result.message ??
-              '학습 기록 조회에 실패했습니다.',
+            recordsResult.message ?? '학습 기록 조회에 실패했습니다.',
           )
         }
 
-        const normalizedRecords =
-          result.data.map((record) => ({
+        if (
+          !subjectsResponse.ok ||
+          !subjectsResult.success ||
+          !subjectsResult.data
+        ) {
+          throw new Error(
+            subjectsResult.message ?? '과목 조회에 실패했습니다.',
+          )
+        }
+
+        setRecords(
+          recordsResult.data.map((record) => ({
             ...record,
             id: Number(record.id),
             minutes: Number(record.minutes),
-            understanding: Number(
-              record.understanding,
-            ),
-          }))
-
-        if (!ignoreResult) {
-          setRecords(normalizedRecords)
-          setLoadStatus('success')
-        }
-      } catch (error) {
-        console.error(
-          '학습 기록을 불러오지 못했습니다.',
-          error,
+            understanding: Number(record.understanding),
+          })),
         )
-
-        if (!ignoreResult) {
-          setRecords([])
-          setLoadStatus('error')
+        setAvailableSubjects(
+          subjectsResult.data
+            .filter((subject) => subject.name !== '기타')
+            .map((subject) => ({
+              id: String(subject.id),
+              name: subject.name,
+            })),
+        )
+        setLoadStatus('success')
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return
         }
+
+        console.error('학습 기록을 불러오지 못했습니다.', error)
+        setRecords([])
+        setLoadMessage(
+          error instanceof Error
+            ? error.message
+            : '학습 기록을 불러오지 못했습니다.',
+        )
+        setLoadStatus('error')
       }
     }
 
     void loadRecords()
 
-    return () => {
-      ignoreResult = true
-    }
+    return () => controller.abort()
   }, [])
 
-  const subjects = useMemo(() => {
-    const savedSubjects = records.map(
-      (record) => record.subject,
-    )
+  const subjectBookItems = useMemo<SubjectBookItem[]>(
+    () =>
+      availableSubjects.map((subject) => {
+        const subjectRecords = records.filter(
+          (record) => record.subject === subject.name,
+        )
+        const subjectMinutes = subjectRecords.reduce(
+          (total, record) => total + Number(record.minutes || 0),
+          0,
+        )
 
-    return [
-      '전체',
-      ...new Set(savedSubjects),
-    ]
-  }, [records])
+        return {
+          id: subject.id,
+          subject: subject.name,
+          eyebrow: 'LEARNING RECORD',
+          meta: `${subjectRecords.length}개 기록 · ${formatStudyTime(
+            subjectMinutes,
+          )}`,
+        }
+      }),
+    [availableSubjects, records],
+  )
+
+  const selectedSubjectRecords = useMemo(() => {
+    if (!selectedSubject) {
+      return []
+    }
+
+    return records.filter((record) => record.subject === selectedSubject)
+  }, [records, selectedSubject])
+
+  const selectedSubjectMinutes = selectedSubjectRecords.reduce(
+    (total, record) => total + Number(record.minutes || 0),
+    0,
+  )
+
+  const selectedSubjectUnderstanding =
+    selectedSubjectRecords.length === 0
+      ? 0
+      : selectedSubjectRecords.reduce(
+          (total, record) => total + Number(record.understanding || 0),
+          0,
+        ) / selectedSubjectRecords.length
 
   const filteredRecords = useMemo(() => {
-    const normalizedSearchText =
-      searchText.trim().toLowerCase()
+    const normalizedSearchText = searchText.trim().toLowerCase()
 
-    return records
+    return selectedSubjectRecords
       .filter((record) => {
-        // 과목 필터
-        const matchesSubject =
-          subjectFilter === '전체' ||
-          record.subject === subjectFilter
-
-        // 날짜 필터 (기본값 오늘, 특정 날짜 선택 시 해당 날짜만)
-        const matchesDate =
-          !selectedDate || record.date === selectedDate
-
-        // 검색어 필터
+        const matchesDate = !selectedDate || record.date === selectedDate
         const searchableText = [
           record.subject,
           record.unit,
@@ -305,508 +287,400 @@ function HistoryPage() {
         ]
           .join(' ')
           .toLowerCase()
-
         const matchesSearch =
           normalizedSearchText.length === 0 ||
-          searchableText.includes(
-            normalizedSearchText,
-          )
+          searchableText.includes(normalizedSearchText)
 
-        return matchesSubject && matchesDate && matchesSearch
+        return matchesDate && matchesSearch
       })
       .sort((firstRecord, secondRecord) => {
         const firstTime = new Date(
-          firstRecord.createdAt ??
-            `${firstRecord.date}T00:00:00`,
+          firstRecord.createdAt ?? `${firstRecord.date}T00:00:00`,
         ).getTime()
-
         const secondTime = new Date(
-          secondRecord.createdAt ??
-            `${secondRecord.date}T00:00:00`,
+          secondRecord.createdAt ?? `${secondRecord.date}T00:00:00`,
         ).getTime()
 
         return secondTime - firstTime
       })
-  }, [records, searchText, subjectFilter, selectedDate])
+  }, [searchText, selectedDate, selectedSubjectRecords])
 
-  const totalMinutes = records.reduce(
-    (total, record) =>
-      total + Number(record.minutes || 0),
-    0,
-  )
+  const monthDays = useMemo(() => {
+    const totalDaysInMonth = new Date(
+      currentYear,
+      currentMonth + 1,
+      0,
+    ).getDate()
 
-  const averageUnderstanding =
-    records.length > 0
-      ? (
-          records.reduce(
-            (total, record) =>
-              total +
-              Number(record.understanding || 0),
-            0,
-          ) / records.length
-        ).toFixed(1)
-      : '0'
+    return Array.from({ length: totalDaysInMonth }, (_, index) => {
+      const dateObject = new Date(currentYear, currentMonth, index + 1)
+      const dateKey = formatDateKey(dateObject)
+      const hasRecord = selectedSubjectRecords.some(
+        (record) => record.date === dateKey,
+      )
 
-  const handleDelete = async (
-    recordId: number,
-  ) => {
-    const shouldDelete = window.confirm(
-      '이 학습 기록을 삭제할까요?',
+      return {
+        dateKey,
+        dayName: DAY_NAMES[dateObject.getDay()],
+        date: String(index + 1),
+        active: hasRecord,
+        today: isSameDate(dateObject, today),
+        selected: selectedDate === dateKey,
+      }
+    })
+  }, [
+    currentMonth,
+    currentYear,
+    selectedDate,
+    selectedSubjectRecords,
+    today,
+  ])
+
+  const handleOpenSubjectBook = (book: SubjectBookItem) => {
+    setSelectedSubject(book.subject)
+    setSearchText('')
+    setSelectedDate(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleCloseSubjectBook = () => {
+    setSelectedSubject(null)
+    setSearchText('')
+    setSelectedDate(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleDateClick = (dateKey: string) => {
+    setSelectedDate((previousDate) =>
+      previousDate === dateKey ? null : dateKey,
     )
+  }
 
-    if (!shouldDelete) {
+  const handleDelete = async (recordId: number) => {
+    if (!window.confirm('이 학습 기록을 삭제할까요?')) {
       return
     }
 
     try {
       const response = await fetch(
         `${API_BASE_URL}/study-records/${recordId}`,
-        {
-          method: 'DELETE',
-        },
+        { method: 'DELETE' },
       )
-
       const result =
         (await response.json()) as DeleteStudyRecordApiResponse
 
       if (!response.ok || !result.success) {
         throw new Error(
-          result.message ??
-            '학습 기록 삭제에 실패했습니다.',
+          result.message ?? '학습 기록 삭제에 실패했습니다.',
         )
       }
 
       setRecords((previousRecords) =>
-        previousRecords.filter(
-          (record) => record.id !== recordId,
-        ),
+        previousRecords.filter((record) => record.id !== recordId),
       )
     } catch (error) {
-      console.error(
-        '학습 기록을 삭제하지 못했습니다.',
-        error,
-      )
-
+      console.error('학습 기록을 삭제하지 못했습니다.', error)
       window.alert(
         '학습 기록을 삭제하지 못했습니다. 다시 시도해 주세요.',
       )
     }
   }
 
-  // 날짜 클릭 토글
-  const handleDateClick = (dateKey: string) => {
-    if (selectedDate === dateKey) {
-      setSelectedDate(null) // 이미 선택한 날짜 재클릭 시 전체 보기
-    } else {
-      setSelectedDate(dateKey)
-    }
-  }
+  if (selectedSubject) {
+    return (
+      <main className="history-page ai-review-page">
+        <div className="review-note-toolbar">
+          <button
+            type="button"
+            className="review-back-button"
+            onClick={handleCloseSubjectBook}
+          >
+            <ArrowLeft size={18} />
+            과목 노트 목록
+          </button>
+        </div>
 
-  return (
-    <main className="history-page">
-      <div className="history-container layout-3col">
-        {/* 👈 [좌측 사이드바]*/}
-        <aside className="history-sidebar left-sidebar"
-        style={{ position: 'sticky', top: '24px', height: 'fit-content' }}>
-          <div className="sidebar-card ai-summary-card">
-            <span className="postit-tape"></span>
-            <h4>💡 학습 팁</h4>
-            <p>
-              달력의 특정 날짜를 누르면 해당 날짜의 기록을 한눈에 모아볼 수 있어요!
-            </p>
-          </div>
-        </aside>
-
-        {/* 📄 [중앙 본문] */}
-        <div className="history-main-content">
-          <div className="history-topbar">
-            <Link
-              className="history-back-link"
-              to="/"
-            >
-              <ArrowLeft size={17} />
-              이번 주로 돌아가기
-            </Link>
-
-            <Link
-              className="history-create-button"
-              to="/records"
-            >
-              <Plus size={18} />
-              새 학습 기록 작성
-            </Link>
-          </div>
-
-          <header className="history-heading">
-            <span className="history-heading-icon">
+        <section className="opened-review-note">
+          <div className="opened-note-heading">
+            <span className="opened-note-icon">
               <BookOpen size={26} />
             </span>
 
             <div>
-              <span className="history-eyebrow">
-                LEARNING ARCHIVE
-              </span>
-
-              <h1>나의 학습 기록</h1>
-
+              <span className="opened-note-label">LEARNING RECORD</span>
+              <h1>{selectedSubject} 학습 노트</h1>
               <p>
-                매일 남긴 학습 기록을 다시
-                확인하고,
-                <br />
-                내가 어떻게 성장했는지
+                매일 남긴 학습 내용을 다시 확인하고 성장 과정을
                 살펴보세요.
               </p>
             </div>
-          </header>
+          </div>
 
-          <section className="history-summary">
-            <div className="history-summary-item">
-              <BookOpen size={20} />
-
-              <div>
-                <span>전체 기록</span>
-                <strong>{records.length}개</strong>
-              </div>
+          <div className="review-note-summary">
+            <div>
+              <FileText size={20} />
+              <span>학습 기록</span>
+              <strong>{selectedSubjectRecords.length}개</strong>
             </div>
 
-            <div className="history-summary-item">
+            <div>
               <Clock3 size={20} />
-
-              <div>
-                <span>누적 학습시간</span>
-
-                <strong>
-                  {formatStudyTime(totalMinutes)}
-                </strong>
-              </div>
+              <span>누적 학습시간</span>
+              <strong>{formatStudyTime(selectedSubjectMinutes)}</strong>
             </div>
 
-            <div className="history-summary-item">
-              <Star size={20} />
-
-              <div>
-                <span>평균 이해도</span>
-
-                <strong>
-                  {averageUnderstanding} / 5
-                </strong>
-              </div>
-            </div>
-          </section>
-
-          {/* 🔍 검색 및 과목 필터바 */}
-          <section className="history-toolbar">
-            <label className="history-search">
-              <Search size={18} />
-
-              <input
-                type="search"
-                value={searchText}
-                onChange={(event) =>
-                  setSearchText(event.target.value)
-                }
-                placeholder="단원, 학습 내용, 키워드 검색"
-              />
-            </label>
-
-            <select
-              className="history-subject-filter"
-              value={subjectFilter}
-              onChange={(event) =>
-                setSubjectFilter(
-                  event.target.value,
-                )
-              }
-              aria-label="과목 선택"
-            >
-              {subjects.map((subject) => (
-                <option
-                  value={subject}
-                  key={subject}
-                >
-                  {subject}
-                </option>
-              ))}
-            </select>
-          </section>
-
-          {/* 선택된 날짜 필터 표시 뱃지 */}
-          {selectedDate ? (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginBottom: '16px',
-                padding: '8px 14px',
-                backgroundColor: 'var(--primary-light, #eef2ff)',
-                borderRadius: '8px',
-                width: 'fit-content',
-                fontSize: '14px',
-                fontWeight: '600',
-              }}
-            >
-              <span>
-                📅 {selectedDate === todayKey ? '오늘' : formatRecordDate(selectedDate)} 학습 기록
-              </span>
-              <button
-                type="button"
-                onClick={() => setSelectedDate(null)}
-                style={{
-                  border: 'none',
-                  background: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: 0,
-                }}
-                title="전체 날짜 보기"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ) : (
-            <div
-              style={{
-                marginBottom: '16px',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#666',
-              }}
-            >
-              📋 전체 날짜의 학습 기록을 보는 중입니다.
-            </div>
-          )}
-
-          {loadStatus === 'loading' ? (
-            <section className="history-empty">
-              <span className="history-empty-icon">
-                <BookOpen size={29} />
-              </span>
-
-              <h2>
-                학습 기록을 불러오는 중이에요.
-              </h2>
-
-              <p>잠시만 기다려 주세요.</p>
-            </section>
-          ) : loadStatus === 'error' ? (
-            <section className="history-empty">
-              <span className="history-empty-icon">
-                <BookOpen size={29} />
-              </span>
-
-              <h2>
-                학습 기록을 불러오지 못했어요.
-              </h2>
-
-              <p>
-                백엔드 서버가 실행 중인지 확인한
-                뒤 새로고침해 주세요.
-              </p>
-            </section>
-          ) : filteredRecords.length === 0 ? (
-            <section className="history-empty">
-              <span className="history-empty-icon">
-                <BookOpen size={29} />
-              </span>
-
-              <h2>
-                {selectedDate === todayKey
-                  ? '오늘 작성한 학습 기록이 없어요.'
-                  : '선택한 조건에 해당하는 기록이 없어요.'}
-              </h2>
-
-              <p>
-                {selectedDate === todayKey
-                  ? '오늘 공부한 내용을 남겨 첫 번째 기록을 쌓아보세요!'
-                  : '검색어나 과목, 날짜 선택 조건을 변경해 보세요.'}
-              </p>
-
-              {selectedDate && (
-                <button
-                  type="button"
-                  className="history-empty-button"
-                  onClick={() => setSelectedDate(null)}
-                >
-                  전체 날짜 기록 보기
-                </button>
-              )}
-            </section>
-          ) : (
-            <section className="history-list">
-              {filteredRecords.map((record) => {
-                const keywords = record.keywords
-                  .split(',')
-                  .map((keyword) =>
-                    keyword.trim(),
-                  )
-                  .filter(Boolean)
-
-                return (
-                  <article
-                    className="history-record-card"
-                    key={record.id}
-                  >
-                    <div className="history-record-header">
-                      <div className="history-record-identity">
-                        <span className="history-record-date">
-                          <CalendarDays
-                            size={15}
-                          />
-
-                          {formatRecordDate(
-                            record.date,
-                          )}
-                        </span>
-
-                        <span className="history-record-subject">
-                          {record.subject}
-                        </span>
-                      </div>
-
-                      <div className="history-record-actions">
-                        <Link
-                          className="history-detail-link"
-                          to={`/history/${record.id}`}
-                          aria-label={`${record.unit} 기록 상세보기`}
-                        >
-                          상세보기
-                          <ArrowRight size={15} />
-                        </Link>
-
-                        <button
-                          type="button"
-                          className="history-delete-button"
-                          onClick={() =>
-                            handleDelete(record.id)
-                          }
-                          aria-label={`${record.unit} 기록 삭제`}
-                        >
-                          <Trash2 size={17} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <h2>
-                      {record.unit.trim() ||
-                        `${record.subject} 학습`}
-                    </h2>
-
-                    <div className="history-record-meta">
-                      <span>
-                        <Clock3 size={16} />
-                        {formatStudyTime(
-                          record.minutes,
-                        )}
-                      </span>
-
-                      <span>
-                        <Star size={16} />
-                        이해도{' '}
-                        {record.understanding} ·{' '}
-                        {understandingLabels[
-                          record.understanding
-                        ] ?? '미선택'}
-                      </span>
-                    </div>
-
-                    <div className="history-record-content">
-                      <div>
-                        <strong>
-                          이해한 내용
-                        </strong>
-
-                        <p>{record.learned}</p>
-                      </div>
-
-                      <div>
-                        <strong>
-                          다시 볼 내용
-                        </strong>
-
-                        <p>
-                          {record.difficult}
-                        </p>
-                      </div>
-                    </div>
-
-                    {keywords.length > 0 && (
-                      <div className="history-keywords">
-                        {keywords.map(
-                          (keyword) => (
-                            <span key={keyword}>
-                              {keyword}
-                            </span>
-                          ),
-                        )}
-                      </div>
-                    )}
-                  </article>
-                )
-              })}
-            </section>
-          )}
-        </div>
-
-        {/* 📅 [우측 사이드바] marginTop 제거 및 상단 고정 적용 */}
-        <aside
-          className="history-sidebar right-sidebar"
-          style={{ position: 'sticky', top: '24px', height: 'fit-content' }}
-        >
-          <div className="sidebar-card memo-card">
-            <div className="card-header">
-              <Calendar size={16} />
-              <h3>{currentMonth + 1}월 학습기록</h3>
-            </div>
-            <div
-              className="mini-calendar"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(7, 1fr)',
-                gap: '4px',
-              }}
-            >
-              {monthDays.map((item) => (
-                <button
-                  key={`${item.date}-${item.dayName}`}
-                  type="button"
-                  onClick={() => handleDateClick(item.dateKey)}
-                  className={`calendar-day ${item.today ? 'today' : ''} ${
-                    item.active ? 'completed' : ''
-                  }`}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '4px 2px',
-                    minHeight: '42px',
-                    cursor: 'pointer',
-                    outline: item.selected
-                      ? '2px solid var(--primary, #4f46e5)'
-                      : 'none',
-                    borderRadius: '6px',
-                    border: 'none',
-                    background: item.selected ? '#e0e7ff' : undefined,
-                  }}
-                  title={`${item.date}일 학습 기록 필터링`}
-                >
-                  <span className="day-name" style={{ fontSize: '10px' }}>
-                    {item.dayName}
-                  </span>
-                  <span className="day-date" style={{ fontSize: '12px' }}>
-                    {item.date}
-                  </span>
-                  {item.active && (
-                    <CheckCircle2 size={11} className="check-icon" />
-                  )}
-                </button>
-              ))}
+            <div>
+              <Brain size={20} />
+              <span>평균 이해도</span>
+              <strong>
+                {selectedSubjectUnderstanding.toFixed(1)} / 5
+              </strong>
             </div>
           </div>
-        </aside>
-      </div>
+
+          <div className="review-note-content history-opened-note-content">
+            <div className="review-note-section-heading">
+              <div>
+                <span>SUBJECT ARCHIVE</span>
+                <h2>학습 기록 모아보기</h2>
+              </div>
+
+              <Link className="history-note-create-button" to="/records">
+                <Plus size={17} />
+                학습 기록 추가
+              </Link>
+            </div>
+
+            <div className="history-note-tools">
+              <label className="history-search">
+                <Search size={18} />
+                <input
+                  type="search"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                  placeholder="단원, 학습 내용, 키워드 검색"
+                />
+              </label>
+
+              {selectedDate ? (
+                <button
+                  type="button"
+                  className="history-date-filter"
+                  onClick={() => setSelectedDate(null)}
+                  title="전체 날짜 보기"
+                >
+                  <CalendarDays size={16} />
+                  {selectedDate === todayKey
+                    ? '오늘'
+                    : formatRecordDate(selectedDate)}
+                  <X size={15} />
+                </button>
+              ) : (
+                <span className="history-date-filter is-idle">
+                  <CalendarDays size={16} />
+                  전체 날짜
+                </span>
+              )}
+            </div>
+
+            <div className="history-opened-layout">
+              <div className="history-opened-records">
+                {selectedSubjectRecords.length === 0 ? (
+                  <div className="empty-review-note">
+                    <BookOpen size={42} />
+                    <h3>아직 등록된 학습 기록이 없어요.</h3>
+                    <p>
+                      먼저 {selectedSubject} 학습 기록을 남겨주세요.
+                    </p>
+                    <Link
+                      className="history-empty-create-button"
+                      to="/records"
+                    >
+                      학습 기록 작성하기
+                    </Link>
+                  </div>
+                ) : filteredRecords.length === 0 ? (
+                  <div className="empty-review-note">
+                    <Search size={42} />
+                    <h3>선택한 조건의 기록이 없어요.</h3>
+                    <p>검색어나 날짜 선택을 변경해 보세요.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchText('')
+                        setSelectedDate(null)
+                      }}
+                    >
+                      전체 기록 보기
+                    </button>
+                  </div>
+                ) : (
+                  <section className="history-list">
+                    {filteredRecords.map((record) => {
+                      const keywords = record.keywords
+                        .split(',')
+                        .map((keyword) => keyword.trim())
+                        .filter(Boolean)
+
+                      return (
+                        <article
+                          className="history-record-card"
+                          key={record.id}
+                        >
+                          <div className="history-record-header">
+                            <div className="history-record-identity">
+                              <span className="history-record-date">
+                                <CalendarDays size={15} />
+                                {formatRecordDate(record.date)}
+                              </span>
+                              <span className="history-record-subject">
+                                {record.subject}
+                              </span>
+                            </div>
+
+                            <div className="history-record-actions">
+                              <Link
+                                className="history-detail-link"
+                                to={`/history/${record.id}`}
+                                aria-label={`${record.unit} 기록 상세보기`}
+                              >
+                                상세보기
+                                <ArrowRight size={15} />
+                              </Link>
+                              <button
+                                type="button"
+                                className="history-delete-button"
+                                onClick={() => handleDelete(record.id)}
+                                aria-label={`${record.unit} 기록 삭제`}
+                              >
+                                <Trash2 size={17} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <h2>
+                            {record.unit.trim() ||
+                              `${record.subject} 학습`}
+                          </h2>
+
+                          <div className="history-record-meta">
+                            <span>
+                              <Clock3 size={16} />
+                              {formatStudyTime(record.minutes)}
+                            </span>
+                            <span>
+                              <Star size={16} />
+                              이해도 {record.understanding} ·{' '}
+                              {understandingLabels[record.understanding] ??
+                                '미선택'}
+                            </span>
+                          </div>
+
+                          <div className="history-record-content">
+                            <div>
+                              <strong>이해한 내용</strong>
+                              <p>{record.learned}</p>
+                            </div>
+                            <div>
+                              <strong>다시 볼 내용</strong>
+                              <p>{record.difficult}</p>
+                            </div>
+                          </div>
+
+                          {keywords.length > 0 ? (
+                            <div className="history-keywords">
+                              {keywords.map((keyword) => (
+                                <span key={keyword}>{keyword}</span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </article>
+                      )
+                    })}
+                  </section>
+                )}
+              </div>
+
+              <aside className="history-note-calendar">
+                <div className="history-calendar-heading">
+                  <Calendar size={17} />
+                  <strong>{currentMonth + 1}월 학습 기록</strong>
+                </div>
+
+                <div className="mini-calendar history-note-calendar-grid">
+                  {monthDays.map((item) => (
+                    <button
+                      key={item.dateKey}
+                      type="button"
+                      onClick={() => handleDateClick(item.dateKey)}
+                      className={[
+                        'calendar-day',
+                        item.today ? 'today' : '',
+                        item.active ? 'completed' : '',
+                        item.selected ? 'is-selected' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      title={`${item.date}일 학습 기록 필터링`}
+                    >
+                      <span className="day-name">{item.dayName}</span>
+                      <span className="day-date">{item.date}</span>
+                      {item.active ? (
+                        <CheckCircle2 size={11} className="check-icon" />
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              </aside>
+            </div>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
+  return (
+    <main className="history-page ai-review-page">
+      <section className="ai-review-hero">
+        <span className="ai-review-eyebrow">LEARNING ARCHIVE</span>
+        <h1>나의 학습 기록</h1>
+        <p>
+          과목별 학습 노트를 열어 매일 남긴 기록과 성장 과정을
+          확인해 보세요.
+        </p>
+      </section>
+
+      {loadStatus === 'loading' ? (
+        <div className="review-page-message">
+          학습 노트를 불러오고 있습니다.
+        </div>
+      ) : loadStatus === 'error' ? (
+        <div className="review-page-message is-error">
+          <strong>학습 노트를 불러오지 못했습니다.</strong>
+          <span>{loadMessage}</span>
+        </div>
+      ) : (
+        <section className="review-library">
+          <div className="review-library-heading">
+            <div>
+              <span>MY SUBJECTS</span>
+              <h2>과목별 학습 노트</h2>
+            </div>
+            <p>
+              노트를 선택하면 표지가 열리면서 해당 과목의 학습 기록이
+              나타납니다.
+            </p>
+          </div>
+
+          <SubjectBookshelf
+            items={subjectBookItems}
+            variant="study"
+            hoverLabel="학습 기록 열어보기"
+            emptyMessage="아직 등록된 과목이 없습니다."
+            onOpen={handleOpenSubjectBook}
+          />
+        </section>
+      )}
     </main>
   )
 }

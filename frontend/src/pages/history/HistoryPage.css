@@ -592,6 +592,70 @@
 }
 
 
+.history-subject-library {
+  margin: 30px 0;
+  padding: 30px 28px;
+  border: 1px solid #e5dfd5;
+  border-radius: 20px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(244, 249, 242, 0.94),
+      rgba(255, 253, 248, 0.96)
+    );
+  box-shadow: 0 14px 35px rgba(54, 48, 39, 0.06);
+}
+
+.history-subject-library-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #e8e1d6;
+}
+
+.history-subject-library-heading span {
+  color: #578266;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.history-subject-library-heading h2 {
+  margin: 8px 0 0;
+  color: #28251f;
+  font-size: 27px;
+}
+
+.history-subject-library-heading p {
+  max-width: 340px;
+  margin: 0;
+  color: #81786d;
+  font-size: 14px;
+  line-height: 1.7;
+  text-align: right;
+  word-break: keep-all;
+}
+
+@media (max-width: 760px) {
+  .history-subject-library {
+    padding: 24px 18px;
+  }
+
+  .history-subject-library-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .history-subject-library-heading p {
+    text-align: left;
+  }
+}
+
+
+
 /* ==========================================
    5. 반응형 미디어 쿼리 (Responsive Styles)
    ================================---------- */
@@ -658,5 +722,242 @@
 
   .history-record-content {
     grid-template-columns: 1fr;
+  }
+}
+
+/* AI 복습 노트와 동일한 책장/펼친 노트 흐름 */
+.history-page.ai-review-page {
+  min-height: calc(100vh - 82px);
+  padding: 64px clamp(24px, 7vw, 120px) 100px;
+  color: #211f1b;
+  background:
+    radial-gradient(
+      circle at 14% 6%,
+      rgba(225, 190, 122, 0.13),
+      transparent 30%
+    ),
+    #fbfaf7;
+}
+
+.history-note-create-button,
+.history-empty-create-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 18px;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  background: #24221e;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+.history-note-create-button:hover,
+.history-empty-create-button:hover {
+  color: #fff;
+  background: #a87930;
+  transform: translateY(-2px);
+}
+
+.history-library-empty {
+  flex-direction: column;
+  gap: 18px;
+}
+
+.history-library-empty svg {
+  color: #a77a32;
+}
+
+.history-library-empty strong {
+  color: #342d24;
+  font-size: 20px;
+}
+
+.history-opened-note-content {
+  min-height: 720px;
+}
+
+.history-note-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.history-note-tools .history-search input {
+  height: 50px;
+  border-color: rgba(169, 128, 62, 0.25);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.history-date-filter {
+  display: inline-flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 15px;
+  border: 1px solid rgba(169, 128, 62, 0.25);
+  border-radius: 11px;
+  color: #745f3e;
+  background: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+button.history-date-filter {
+  cursor: pointer;
+}
+
+.history-date-filter.is-idle {
+  color: #8b806f;
+}
+
+.history-opened-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 24px;
+  align-items: start;
+}
+
+.history-opened-records {
+  min-width: 0;
+}
+
+.history-note-calendar {
+  position: sticky;
+  top: 102px;
+  padding: 20px;
+  border: 1px solid rgba(169, 128, 62, 0.24);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 12px 24px rgba(88, 68, 39, 0.06);
+}
+
+.history-calendar-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: #9e7432;
+}
+
+.history-calendar-heading strong {
+  color: #342d24;
+  font-size: 14px;
+}
+
+.history-note-calendar-grid {
+  gap: 5px;
+}
+
+.history-note-calendar-grid .calendar-day {
+  position: relative;
+  min-height: 46px;
+  justify-content: center;
+  padding: 5px 2px;
+  border-color: rgba(169, 128, 62, 0.18);
+  background: rgba(255, 253, 247, 0.82);
+  cursor: pointer;
+}
+
+.history-note-calendar-grid .calendar-day:hover {
+  border-color: #c69a55;
+  background: #fffaf0;
+}
+
+.history-note-calendar-grid .calendar-day.is-selected {
+  border-color: #a87930;
+  background: #fff0cf;
+  box-shadow: 0 0 0 2px rgba(168, 121, 48, 0.13);
+}
+
+.history-note-calendar-grid .check-icon {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+}
+
+.history-page.ai-review-page .history-record-card {
+  border-color: rgba(169, 128, 62, 0.24);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 12px 24px rgba(88, 68, 39, 0.06);
+}
+
+.history-page.ai-review-page .history-record-content > div {
+  border-color: rgba(169, 128, 62, 0.2);
+  background: rgba(255, 253, 247, 0.72);
+}
+
+.history-page.ai-review-page .history-empty-create-button {
+  margin-top: 24px;
+}
+
+@media (max-width: 1040px) {
+  .history-opened-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .history-note-calendar {
+    position: static;
+    order: -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .history-page.ai-review-page {
+    padding: 38px 16px 70px;
+  }
+
+  .history-page.ai-review-page .opened-note-heading {
+    align-items: flex-start;
+    padding: 30px 23px 25px;
+  }
+
+  .history-page.ai-review-page .review-note-content {
+    padding: 34px 20px 45px 42px;
+    background:
+      linear-gradient(
+        90deg,
+        transparent 0,
+        transparent 27px,
+        rgba(190, 117, 90, 0.22) 28px,
+        rgba(190, 117, 90, 0.22) 29px,
+        transparent 30px
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 39px,
+        rgba(180, 138, 68, 0.19) 40px,
+        transparent 41px
+      ),
+      #fff8df;
+  }
+
+  .history-note-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .history-date-filter {
+    justify-self: stretch;
+  }
+
+  .history-record-header,
+  .review-note-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .history-record-actions {
+    align-self: flex-end;
   }
 }
