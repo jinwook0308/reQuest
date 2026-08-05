@@ -44,15 +44,15 @@ const questionSchema = z.object({
     'short-answer',
   ]),
 
-  concept: z.string().trim().min(1),
-  prompt: z.string().trim().min(1),
+  concept: z.string().trim().min(1).max(1000, '키워드와 개념은 1000자를 초과할 수 없습니다.'),
+  prompt: z.string().trim().min(1).max(5000, '복습 문제는 5000자를 초과할 수 없습니다.'),
 
   options: z
-    .array(z.string().trim())
+    .array(z.string().trim().max(1000, '선택지 내용은 1000자를 초과할 수 없습니다.'))
     .max(4),
 
-  answer: z.string().trim().min(1),
-  explanation: z.string().trim().min(1),
+  answer: z.string().trim().min(1).max(2000, '정답은 2000자를 초과할 수 없습니다.'),
+  explanation: z.string().trim().min(1).max(5000, '해설은 5000자를 초과할 수 없습니다.'),
 })
 
 const saveQuestSetSchema = z
@@ -144,7 +144,7 @@ const saveQuestSetSchema = z
 
 const quizAnswerSchema = z.object({
   questionId: z.number().int().positive(),
-  userAnswer: z.string(),
+  userAnswer: z.string().max(5000, '퀴즈 답변은 5000자를 초과할 수 없습니다.'),
 })
 
 const storedGradedAnswerSchema =
@@ -154,7 +154,7 @@ const storedGradedAnswerSchema =
 
 const gradeAnswerSchema = z.object({
   questionId: z.number().int().positive(),
-  userAnswer: z.string(),
+  userAnswer: z.string().max(5000, '퀴즈 답변은 5000자를 초과할 수 없습니다.'),
 })
 
 const saveAttemptSchema = z.object({
