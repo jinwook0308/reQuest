@@ -637,3 +637,117 @@
     justify-content: center;
   }
 }
+
+/* AI 복습 노트와 동일한 책장/펼친 노트 흐름 */
+.wrong-notes-page.ai-review-page {
+  min-height: calc(100vh - 82px);
+  padding: 64px clamp(24px, 7vw, 120px) 100px;
+  color: #211f1b;
+  background:
+    radial-gradient(
+      circle at 14% 6%,
+      rgba(225, 190, 122, 0.13),
+      transparent 30%
+    ),
+    #fbfaf7;
+}
+
+.wrong-notes-note-create-button,
+.wrong-notes-empty-create-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 18px;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  background: #24221e;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+.wrong-notes-note-create-button:hover,
+.wrong-notes-empty-create-button:hover {
+  color: #fff;
+  background: #a87930;
+  transform: translateY(-2px);
+}
+
+.wrong-notes-note-content {
+  min-height: 720px;
+}
+
+.wrong-notes-note-toolbar {
+  grid-template-columns: minmax(0, 1fr) 190px;
+  margin-bottom: 24px;
+}
+
+.wrong-notes-note-toolbar .wrong-notes-search input,
+.wrong-notes-note-toolbar select {
+  border-color: rgba(169, 128, 62, 0.25);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.wrong-notes-page.ai-review-page .wrong-note-card {
+  border-color: rgba(169, 128, 62, 0.24);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 12px 24px rgba(88, 68, 39, 0.06);
+}
+
+.wrong-notes-page.ai-review-page .wrong-note-thumbnail,
+.wrong-notes-page.ai-review-page .wrong-note-answer-preview > div {
+  border-color: rgba(169, 128, 62, 0.2);
+  background: rgba(255, 253, 247, 0.72);
+}
+
+.wrong-notes-page.ai-review-page .wrong-notes-empty-create-button {
+  margin-top: 24px;
+}
+
+@media (max-width: 760px) {
+  .wrong-notes-page.ai-review-page {
+    padding: 38px 16px 70px;
+  }
+
+  .wrong-notes-page.ai-review-page .opened-note-heading {
+    align-items: flex-start;
+    padding: 30px 23px 25px;
+  }
+
+  .wrong-notes-page.ai-review-page .review-note-content {
+    padding: 34px 20px 45px 42px;
+    background:
+      linear-gradient(
+        90deg,
+        transparent 0,
+        transparent 27px,
+        rgba(190, 117, 90, 0.22) 28px,
+        rgba(190, 117, 90, 0.22) 29px,
+        transparent 30px
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 39px,
+        rgba(180, 138, 68, 0.19) 40px,
+        transparent 41px
+      ),
+      #fff8df;
+  }
+
+  .wrong-notes-note-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .wrong-notes-page.ai-review-page .review-note-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

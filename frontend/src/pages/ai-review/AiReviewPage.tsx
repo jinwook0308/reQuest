@@ -17,7 +17,7 @@ import {
   X,
 } from 'lucide-react'
 
-import './AiReviewPage.css'
+import './AireviewPage.css'
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ??
@@ -643,6 +643,7 @@ function AiReviewPage() {
                     onClick={() =>
                       handleOpenBook(subject)
                     }
+                    title={subject.name}
                   >
                     <span className="review-book-pages" />
 
@@ -664,7 +665,8 @@ function AiReviewPage() {
                       </span>
 
                       <span className="review-book-hover">
-                        노트 열어보기
+                        <strong>{subject.name}</strong>
+                        <small>노트 열어보기</small>
                       </span>
                     </span>
                   </button>

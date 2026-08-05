@@ -1,8 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import {
   AlertCircle,
@@ -18,11 +14,15 @@ import {
   Trash2,
 } from 'lucide-react'
 
+import SubjectBookshelf, {
+  type SubjectBookItem,
+} from '../../components/subject-bookshelf/SubjectBookshelf'
+
 import './WrongNotesPage.css'
+import '../ai-review/AireviewPage.css'
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:4000/api'
+  import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api'
 
 type WrongNoteStatus =
   | 'not-generated'
@@ -47,21 +47,19 @@ type WrongNoteApiItem = {
   createdAt: string
 }
 
-type SavedWrongNote = {
+type SavedWrongNote = Omit<
+  WrongNoteApiItem,
+  | 'id'
+  | 'studyRecordId'
+  | 'wrongImage'
+  | 'wrongImageName'
+  | 'questStatus'
+> & {
   id: number
   studyRecordId: number | null
-  date: string
-  subject: string
-  unit: string
-  mistakeQuestion: string
-  wrongAnswer: string
-  correctAnswer: string
-  mistakeReason: string
-  concepts: string
   wrongImage: string
   wrongImageName: string
   questStatus: WrongNoteStatus
-  createdAt: string
 }
 
 type WrongNotesApiResponse = {
@@ -70,27 +68,29 @@ type WrongNotesApiResponse = {
   data?: WrongNoteApiItem[]
 }
 
+type SubjectsApiResponse = {
+  success: boolean
+  message?: string
+  data?: Array<{
+    id: string | number
+    name: string
+  }>
+}
+
 type DeleteWrongNoteApiResponse = {
   success: boolean
   message?: string
-  data?: {
-    id: number | string
-  }
+  data?: { id: number | string }
 }
 
-const statusLabels: Record<
-  WrongNoteStatus,
-  string
-> = {
+const statusLabels: Record<WrongNoteStatus, string> = {
   'not-generated': '문제 생성 전',
   ready: '복습 대기',
   'retry-required': '재도전 필요',
   completed: '마스터',
 }
 
-function normalizeWrongNoteStatus(
-  status: string | null,
-): WrongNoteStatus {
+function normalizeWrongNoteStatus(status: string | null): WrongNoteStatus {
   if (
     status === 'ready' ||
     status === 'retry-required' ||
@@ -102,133 +102,102 @@ function normalizeWrongNoteStatus(
   return 'not-generated'
 }
 
-async function loadWrongNotesFromApi(
-  signal?: AbortSignal,
-): Promise<SavedWrongNote[]> {
-  const response = await fetch(
-    `${API_BASE_URL}/wrong-notes`,
-    {
-      signal,
-    },
-  )
-
-  const result =
-    (await response.json()) as WrongNotesApiResponse
-
-  if (
-    !response.ok ||
-    !result.success ||
-    !result.data
-  ) {
-    throw new Error(
-      result.message ??
-        '오답노트를 불러오지 못했습니다.',
-    )
-  }
-
-  return result.data.map((wrongNote) => ({
+function normalizeWrongNotes(items: WrongNoteApiItem[]): SavedWrongNote[] {
+  return items.map((wrongNote) => ({
+    ...wrongNote,
     id: Number(wrongNote.id),
-
     studyRecordId:
       wrongNote.studyRecordId === null
         ? null
         : Number(wrongNote.studyRecordId),
-
-    date: wrongNote.date,
-    subject: wrongNote.subject,
-    unit: wrongNote.unit,
-    mistakeQuestion:
-      wrongNote.mistakeQuestion,
-    wrongAnswer: wrongNote.wrongAnswer,
-    correctAnswer:
-      wrongNote.correctAnswer,
-    mistakeReason:
-      wrongNote.mistakeReason,
+    wrongImage: wrongNote.wrongImage ?? '',
+    wrongImageName: wrongNote.wrongImageName ?? '',
     concepts: wrongNote.concepts ?? '',
-    wrongImage:
-      wrongNote.wrongImage ?? '',
-    wrongImageName:
-      wrongNote.wrongImageName ?? '',
-    questStatus:
-      normalizeWrongNoteStatus(
-        wrongNote.questStatus,
-      ),
-    createdAt: wrongNote.createdAt,
+    questStatus: normalizeWrongNoteStatus(wrongNote.questStatus),
   }))
 }
 
 function formatWrongNoteDate(date: string) {
-  const wrongNoteDate = new Date(
-    `${date}T00:00:00`,
-  )
-
-  return wrongNoteDate.toLocaleDateString(
-    'ko-KR',
-    {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'short',
-    },
-  )
+  return new Date(`${date}T00:00:00`).toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  })
 }
 
 function WrongNotesPage() {
-  const [wrongNotes, setWrongNotes] =
-    useState<SavedWrongNote[]>([])
-
-  const [searchText, setSearchText] =
-    useState('')
-
-  const [
-    subjectFilter,
-    setSubjectFilter,
-  ] = useState('전체')
-
-  const [
-    statusFilter,
-    setStatusFilter,
-  ] = useState('전체')
-
-  const [isLoading, setIsLoading] =
-    useState(true)
-
-  const [loadError, setLoadError] =
-    useState('')
-
-  const [
-    deletingWrongNoteId,
-    setDeletingWrongNoteId,
-  ] = useState<number | null>(null)
+  const [wrongNotes, setWrongNotes] = useState<SavedWrongNote[]>([])
+  const [availableSubjects, setAvailableSubjects] = useState<
+    Array<{ id: string; name: string }>
+  >([])
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(
+    null,
+  )
+  const [searchText, setSearchText] = useState('')
+  const [statusFilter, setStatusFilter] = useState('전체')
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [deletingWrongNoteId, setDeletingWrongNoteId] = useState<
+    number | null
+  >(null)
 
   useEffect(() => {
-    const controller =
-      new AbortController()
+    const controller = new AbortController()
 
-    const loadWrongNotes = async () => {
+    async function loadPageData() {
       try {
         setIsLoading(true)
         setLoadError('')
 
-        const loadedWrongNotes =
-          await loadWrongNotesFromApi(
-            controller.signal,
-          )
+        const [wrongNotesResponse, subjectsResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/wrong-notes`, {
+            signal: controller.signal,
+          }),
+          fetch(`${API_BASE_URL}/subjects`, {
+            signal: controller.signal,
+          }),
+        ])
+        const wrongNotesResult =
+          (await wrongNotesResponse.json()) as WrongNotesApiResponse
+        const subjectsResult =
+          (await subjectsResponse.json()) as SubjectsApiResponse
 
-        setWrongNotes(loadedWrongNotes)
-      } catch (error) {
         if (
-          error instanceof DOMException &&
-          error.name === 'AbortError'
+          !wrongNotesResponse.ok ||
+          !wrongNotesResult.success ||
+          !wrongNotesResult.data
         ) {
+          throw new Error(
+            wrongNotesResult.message ?? '오답노트를 불러오지 못했습니다.',
+          )
+        }
+
+        if (
+          !subjectsResponse.ok ||
+          !subjectsResult.success ||
+          !subjectsResult.data
+        ) {
+          throw new Error(
+            subjectsResult.message ?? '과목을 불러오지 못했습니다.',
+          )
+        }
+
+        setWrongNotes(normalizeWrongNotes(wrongNotesResult.data))
+        setAvailableSubjects(
+          subjectsResult.data
+            .filter((subject) => subject.name !== '기타')
+            .map((subject) => ({
+              id: String(subject.id),
+              name: subject.name,
+            })),
+        )
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
           return
         }
 
-        console.error(
-          '오답노트 목록 조회 실패:',
-          error,
-        )
-
+        console.error('오답노트 목록 조회 실패:', error)
         setLoadError(
           error instanceof Error
             ? error.message
@@ -241,151 +210,122 @@ function WrongNotesPage() {
       }
     }
 
-    void loadWrongNotes()
+    void loadPageData()
 
-    return () => {
-      controller.abort()
-    }
+    return () => controller.abort()
   }, [])
 
-  const subjects = useMemo(() => {
-    const savedSubjects =
-      wrongNotes.map(
-        (wrongNote) =>
-          wrongNote.subject,
-      )
-
-    return [
-      '전체',
-      ...new Set(savedSubjects),
-    ]
-  }, [wrongNotes])
-
-  const filteredWrongNotes =
-    useMemo(() => {
-      const normalizedSearchText =
-        searchText.trim().toLowerCase()
-
-      return wrongNotes
-        .filter((wrongNote) => {
-          const matchesSubject =
-            subjectFilter === '전체' ||
-            wrongNote.subject ===
-              subjectFilter
-
-          const matchesStatus =
-            statusFilter === '전체' ||
-            wrongNote.questStatus ===
-              statusFilter
-
-          const searchableText = [
-            wrongNote.subject,
-            wrongNote.unit,
-            wrongNote.mistakeQuestion,
-            wrongNote.wrongAnswer,
-            wrongNote.correctAnswer,
-            wrongNote.mistakeReason,
-            wrongNote.concepts,
-          ]
-            .join(' ')
-            .toLowerCase()
-
-          const matchesSearch =
-            !normalizedSearchText ||
-            searchableText.includes(
-              normalizedSearchText,
-            )
-
-          return (
-            matchesSubject &&
-            matchesStatus &&
-            matchesSearch
-          )
-        })
-        .sort(
-          (
-            firstWrongNote,
-            secondWrongNote,
-          ) =>
-            new Date(
-              secondWrongNote.createdAt,
-            ).getTime() -
-            new Date(
-              firstWrongNote.createdAt,
-            ).getTime(),
+  const subjectBookItems = useMemo<SubjectBookItem[]>(
+    () =>
+      availableSubjects.map((subject) => {
+        const subjectWrongNotes = wrongNotes.filter(
+          (wrongNote) => wrongNote.subject === subject.name,
         )
-    }, [
-      wrongNotes,
-      searchText,
-      subjectFilter,
-      statusFilter,
-    ])
+        const retryCount = subjectWrongNotes.filter(
+          (wrongNote) => wrongNote.questStatus === 'retry-required',
+        ).length
 
-  const retryRequiredCount =
-    wrongNotes.filter(
-      (wrongNote) =>
-        wrongNote.questStatus ===
-        'retry-required',
-    ).length
+        return {
+          id: subject.id,
+          subject: subject.name,
+          eyebrow: 'WRONG NOTE',
+          meta: `${subjectWrongNotes.length}개 오답 · 재도전 ${retryCount}개`,
+        }
+      }),
+    [availableSubjects, wrongNotes],
+  )
 
-  const completedCount =
-    wrongNotes.filter(
-      (wrongNote) =>
-        wrongNote.questStatus ===
-        'completed',
-    ).length
+  const selectedSubjectWrongNotes = useMemo(() => {
+    if (!selectedSubject) {
+      return []
+    }
 
-  const handleDelete = async (
-    wrongNoteId: number,
-  ) => {
-    const shouldDelete =
-      window.confirm(
-        '이 오답노트를 삭제할까요?',
+    return wrongNotes.filter(
+      (wrongNote) => wrongNote.subject === selectedSubject,
+    )
+  }, [selectedSubject, wrongNotes])
+
+  const filteredWrongNotes = useMemo(() => {
+    const normalizedSearchText = searchText.trim().toLowerCase()
+
+    return selectedSubjectWrongNotes
+      .filter((wrongNote) => {
+        const matchesStatus =
+          statusFilter === '전체' ||
+          wrongNote.questStatus === statusFilter
+        const searchableText = [
+          wrongNote.subject,
+          wrongNote.unit,
+          wrongNote.mistakeQuestion,
+          wrongNote.wrongAnswer,
+          wrongNote.correctAnswer,
+          wrongNote.mistakeReason,
+          wrongNote.concepts,
+        ]
+          .join(' ')
+          .toLowerCase()
+        const matchesSearch =
+          !normalizedSearchText ||
+          searchableText.includes(normalizedSearchText)
+
+        return matchesStatus && matchesSearch
+      })
+      .sort(
+        (firstWrongNote, secondWrongNote) =>
+          new Date(secondWrongNote.createdAt).getTime() -
+          new Date(firstWrongNote.createdAt).getTime(),
       )
+  }, [searchText, selectedSubjectWrongNotes, statusFilter])
 
-    if (!shouldDelete) {
+  const retryRequiredCount = selectedSubjectWrongNotes.filter(
+    (wrongNote) => wrongNote.questStatus === 'retry-required',
+  ).length
+  const completedCount = selectedSubjectWrongNotes.filter(
+    (wrongNote) => wrongNote.questStatus === 'completed',
+  ).length
+
+  const handleOpenSubjectBook = (book: SubjectBookItem) => {
+    setSelectedSubject(book.subject)
+    setSearchText('')
+    setStatusFilter('전체')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleCloseSubjectBook = () => {
+    setSelectedSubject(null)
+    setSearchText('')
+    setStatusFilter('전체')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleDelete = async (wrongNoteId: number) => {
+    if (!window.confirm('이 오답노트를 삭제할까요?')) {
       return
     }
 
     try {
-      setDeletingWrongNoteId(
-        wrongNoteId,
-      )
+      setDeletingWrongNoteId(wrongNoteId)
 
       const response = await fetch(
         `${API_BASE_URL}/wrong-notes/${wrongNoteId}`,
-        {
-          method: 'DELETE',
-        },
+        { method: 'DELETE' },
       )
-
       const result =
         (await response.json()) as DeleteWrongNoteApiResponse
 
-      if (
-        !response.ok ||
-        !result.success
-      ) {
+      if (!response.ok || !result.success) {
         throw new Error(
-          result.message ??
-            '오답노트를 삭제하지 못했습니다.',
+          result.message ?? '오답노트를 삭제하지 못했습니다.',
         )
       }
 
-      setWrongNotes(
-        (previousWrongNotes) =>
-          previousWrongNotes.filter(
-            (wrongNote) =>
-              wrongNote.id !==
-              wrongNoteId,
-          ),
+      setWrongNotes((previousWrongNotes) =>
+        previousWrongNotes.filter(
+          (wrongNote) => wrongNote.id !== wrongNoteId,
+        ),
       )
     } catch (error) {
-      console.error(
-        '오답노트 삭제 실패:',
-        error,
-      )
-
+      console.error('오답노트 삭제 실패:', error)
       window.alert(
         error instanceof Error
           ? error.message
@@ -396,384 +336,268 @@ function WrongNotesPage() {
     }
   }
 
-  return (
-    <main className="wrong-notes-page">
-      <div className="wrong-notes-container">
-        <div className="wrong-notes-topbar">
-          <Link
-            className="wrong-notes-back-link"
-            to="/"
+  if (selectedSubject) {
+    return (
+      <main className="wrong-notes-page ai-review-page">
+        <div className="review-note-toolbar">
+          <button
+            type="button"
+            className="review-back-button"
+            onClick={handleCloseSubjectBook}
           >
-            <ArrowLeft size={17} />
-            이번 주로 돌아가기
-          </Link>
-
-          <Link
-            className="wrong-notes-create-button"
-            to="/wrong-notes/new"
-          >
-            <Plus size={18} />
-            새 오답 등록
-          </Link>
+            <ArrowLeft size={18} />
+            과목 노트 목록
+          </button>
         </div>
 
-        <header className="wrong-notes-heading">
-          <span className="wrong-notes-heading-icon">
-            <BookOpen size={26} />
-          </span>
-
-          <div>
-            <span className="wrong-notes-eyebrow">
-              WRONG ANSWER ARCHIVE
+        <section className="opened-review-note wrong-notes-opened-note">
+          <div className="opened-note-heading">
+            <span className="opened-note-icon">
+              <BookOpen size={26} />
             </span>
 
-            <h1>나의 오답 노트</h1>
-
-            <p>
-              틀린 문제와 이유를 다시
-              확인하고,
-              <br />
-              아직 이해하지 못한 개념을
-              끝까지 복습해 보세요.
-            </p>
-          </div>
-        </header>
-
-        <section className="wrong-notes-summary">
-          <div>
-            <FileQuestion size={21} />
-
-            <span>
-              전체 오답
-              <strong>
-                {wrongNotes.length}개
-              </strong>
-            </span>
+            <div>
+              <span className="opened-note-label">WRONG ANSWER NOTE</span>
+              <h1>{selectedSubject} 오답 노트</h1>
+              <p>
+                틀린 문제와 이유를 다시 확인하고 부족한 개념을 끝까지
+                복습해 보세요.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <AlertCircle size={21} />
+          <div className="review-note-summary">
+            <div>
+              <FileQuestion size={20} />
+              <span>등록한 오답</span>
+              <strong>{selectedSubjectWrongNotes.length}개</strong>
+            </div>
 
-            <span>
-              재도전 필요
-              <strong>
-                {retryRequiredCount}개
-              </strong>
-            </span>
+            <div>
+              <AlertCircle size={20} />
+              <span>재도전 필요</span>
+              <strong>{retryRequiredCount}개</strong>
+            </div>
+
+            <div>
+              <CheckCircle2 size={20} />
+              <span>마스터</span>
+              <strong>{completedCount}개</strong>
+            </div>
           </div>
 
-          <div>
-            <CheckCircle2 size={21} />
+          <div className="review-note-content wrong-notes-note-content">
+            <div className="review-note-section-heading">
+              <div>
+                <span>WRONG ANSWER ARCHIVE</span>
+                <h2>오답과 복습 상태</h2>
+              </div>
 
-            <span>
-              마스터
-              <strong>
-                {completedCount}개
-              </strong>
-            </span>
-          </div>
-        </section>
-
-        <section className="wrong-notes-toolbar">
-          <label className="wrong-notes-search">
-            <Search size={18} />
-
-            <input
-              type="search"
-              value={searchText}
-              onChange={(event) =>
-                setSearchText(
-                  event.target.value,
-                )
-              }
-              placeholder="단원, 문제, 개념 검색"
-            />
-          </label>
-
-          <select
-            value={subjectFilter}
-            onChange={(event) =>
-              setSubjectFilter(
-                event.target.value,
-              )
-            }
-            aria-label="과목 필터"
-          >
-            {subjects.map((subject) => (
-              <option
-                value={subject}
-                key={subject}
+              <Link
+                className="wrong-notes-note-create-button"
+                to="/wrong-notes/new"
               >
-                {subject}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(
-                event.target.value,
-              )
-            }
-            aria-label="복습 상태 필터"
-          >
-            <option value="전체">
-              전체 상태
-            </option>
-
-            <option value="not-generated">
-              문제 생성 전
-            </option>
-
-            <option value="ready">
-              복습 대기
-            </option>
-
-            <option value="retry-required">
-              재도전 필요
-            </option>
-
-            <option value="completed">
-              마스터
-            </option>
-          </select>
-        </section>
-
-        {isLoading ? (
-          <section className="wrong-notes-empty">
-            <span>
-              <BookOpen size={29} />
-            </span>
-
-            <h2>
-              오답노트를 불러오는
-              중이에요.
-            </h2>
-
-            <p>잠시만 기다려 주세요.</p>
-          </section>
-        ) : loadError ? (
-          <section className="wrong-notes-empty">
-            <span>
-              <AlertCircle size={29} />
-            </span>
-
-            <h2>
-              오답노트를 불러오지
-              못했어요.
-            </h2>
-
-            <p>{loadError}</p>
-
-            <button
-              type="button"
-              onClick={() =>
-                window.location.reload()
-              }
-            >
-              다시 불러오기
-            </button>
-          </section>
-        ) : filteredWrongNotes.length ===
-          0 ? (
-          <section className="wrong-notes-empty">
-            <span>
-              <BookOpen size={29} />
-            </span>
-
-            <h2>
-              {wrongNotes.length === 0
-                ? '아직 등록한 오답이 없어요.'
-                : '검색 결과가 없어요.'}
-            </h2>
-
-            <p>
-              {wrongNotes.length === 0
-                ? '틀린 문제를 기록하고 나만의 복습 퀘스트를 시작해 보세요.'
-                : '검색어 또는 필터 조건을 변경해 보세요.'}
-            </p>
-
-            {wrongNotes.length === 0 && (
-              <Link to="/wrong-notes/new">
                 <Plus size={17} />
-                첫 오답 등록하기
+                새 오답 등록
               </Link>
-            )}
-          </section>
-        ) : (
-          <section className="wrong-notes-list">
-            {filteredWrongNotes.map(
-              (wrongNote) => {
-                const concepts =
-                  wrongNote.concepts
+            </div>
+
+            <section className="wrong-notes-toolbar wrong-notes-note-toolbar">
+              <label className="wrong-notes-search">
+                <Search size={18} />
+                <input
+                  type="search"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                  placeholder="단원, 문제, 개념 검색"
+                />
+              </label>
+
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                aria-label="복습 상태 필터"
+              >
+                <option value="전체">전체 상태</option>
+                <option value="not-generated">문제 생성 전</option>
+                <option value="ready">복습 대기</option>
+                <option value="retry-required">재도전 필요</option>
+                <option value="completed">마스터</option>
+              </select>
+            </section>
+
+            {selectedSubjectWrongNotes.length === 0 ? (
+              <div className="empty-review-note">
+                <BookOpen size={42} />
+                <h3>아직 등록된 오답이 없어요.</h3>
+                <p>먼저 {selectedSubject} 오답을 기록해 주세요.</p>
+                <Link
+                  className="wrong-notes-empty-create-button"
+                  to="/wrong-notes/new"
+                >
+                  첫 오답 등록하기
+                </Link>
+              </div>
+            ) : filteredWrongNotes.length === 0 ? (
+              <div className="empty-review-note">
+                <Search size={42} />
+                <h3>선택한 조건의 오답이 없어요.</h3>
+                <p>검색어나 복습 상태를 변경해 보세요.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchText('')
+                    setStatusFilter('전체')
+                  }}
+                >
+                  전체 오답 보기
+                </button>
+              </div>
+            ) : (
+              <section className="wrong-notes-list">
+                {filteredWrongNotes.map((wrongNote) => {
+                  const concepts = wrongNote.concepts
                     .split(',')
-                    .map((concept) =>
-                      concept.trim(),
-                    )
+                    .map((concept) => concept.trim())
                     .filter(Boolean)
+                  const status = wrongNote.questStatus
 
-                const status =
-                  wrongNote.questStatus
+                  return (
+                    <article className="wrong-note-card" key={wrongNote.id}>
+                      <div className="wrong-note-thumbnail">
+                        {wrongNote.wrongImage ? (
+                          <img
+                            src={wrongNote.wrongImage}
+                            alt={`${wrongNote.unit} 오답`}
+                          />
+                        ) : (
+                          <BookOpen size={28} />
+                        )}
+                      </div>
 
-                return (
-                  <article
-                    className="wrong-note-card"
-                    key={wrongNote.id}
-                  >
-                    <div className="wrong-note-thumbnail">
-                      {wrongNote.wrongImage ? (
-                        <img
-                          src={
-                            wrongNote.wrongImage
-                          }
-                          alt={`${wrongNote.unit} 오답`}
-                        />
-                      ) : (
-                        <BookOpen
-                          size={28}
-                        />
-                      )}
-                    </div>
+                      <div className="wrong-note-card-content">
+                        <div className="wrong-note-card-header">
+                          <div>
+                            <span className="wrong-note-date">
+                              <CalendarDays size={15} />
+                              {formatWrongNoteDate(wrongNote.date)}
+                            </span>
+                            <span className="wrong-note-subject">
+                              {wrongNote.subject}
+                            </span>
+                            {wrongNote.studyRecordId ? (
+                              <span className="wrong-note-linked">
+                                <Link2 size={12} />
+                                학습 기록 연결됨
+                              </span>
+                            ) : null}
+                          </div>
 
-                    <div className="wrong-note-card-content">
-                      <div className="wrong-note-card-header">
-                        <div>
-                          <span className="wrong-note-date">
-                            <CalendarDays
-                              size={15}
-                            />
+                          <span className={`wrong-note-status is-${status}`}>
+                            {statusLabels[status]}
+                          </span>
+                        </div>
 
-                            {formatWrongNoteDate(
-                              wrongNote.date,
+                        <h2>
+                          {wrongNote.unit || `${wrongNote.subject} 오답`}
+                        </h2>
+                        <p className="wrong-note-question">
+                          {wrongNote.mistakeQuestion}
+                        </p>
+
+                        <div className="wrong-note-answer-preview">
+                          <div className="is-wrong">
+                            <strong>내 답</strong>
+                            <span>{wrongNote.wrongAnswer}</span>
+                          </div>
+                          <div className="is-correct">
+                            <strong>정답</strong>
+                            <span>{wrongNote.correctAnswer}</span>
+                          </div>
+                        </div>
+
+                        <div className="wrong-note-card-footer">
+                          <div className="wrong-note-concepts">
+                            {concepts.length > 0 ? (
+                              concepts.map((concept) => (
+                                <span key={concept}>{concept}</span>
+                              ))
+                            ) : (
+                              <span>개념 미입력</span>
                             )}
-                          </span>
+                          </div>
 
-                          <span className="wrong-note-subject">
-                            {
-                              wrongNote.subject
-                            }
-                          </span>
-
-                          {wrongNote.studyRecordId && (
-                            <span className="wrong-note-linked">
-                              <Link2
-                                size={12}
-                              />
-                              학습 기록 연결됨
-                            </span>
-                          )}
-                        </div>
-
-                        <span
-                          className={`wrong-note-status is-${status}`}
-                        >
-                          {
-                            statusLabels[
-                              status
-                            ]
-                          }
-                        </span>
-                      </div>
-
-                      <h2>
-                        {wrongNote.unit ||
-                          `${wrongNote.subject} 오답`}
-                      </h2>
-
-                      <p className="wrong-note-question">
-                        {
-                          wrongNote.mistakeQuestion
-                        }
-                      </p>
-
-                      <div className="wrong-note-answer-preview">
-                        <div className="is-wrong">
-                          <strong>
-                            내 답
-                          </strong>
-
-                          <span>
-                            {
-                              wrongNote.wrongAnswer
-                            }
-                          </span>
-                        </div>
-
-                        <div className="is-correct">
-                          <strong>
-                            정답
-                          </strong>
-
-                          <span>
-                            {
-                              wrongNote.correctAnswer
-                            }
-                          </span>
+                          <div className="wrong-note-card-actions">
+                            <Link to={`/wrong-notes/${wrongNote.id}`}>
+                              상세보기
+                              <ArrowRight size={15} />
+                            </Link>
+                            <button
+                              type="button"
+                              disabled={
+                                deletingWrongNoteId === wrongNote.id
+                              }
+                              onClick={() => void handleDelete(wrongNote.id)}
+                              aria-label={`${wrongNote.unit} 오답 삭제`}
+                            >
+                              <Trash2 size={17} />
+                            </button>
+                          </div>
                         </div>
                       </div>
-
-                      <div className="wrong-note-card-footer">
-                        <div className="wrong-note-concepts">
-                          {concepts.length >
-                          0 ? (
-                            concepts.map(
-                              (concept) => (
-                                <span
-                                  key={
-                                    concept
-                                  }
-                                >
-                                  {
-                                    concept
-                                  }
-                                </span>
-                              ),
-                            )
-                          ) : (
-                            <span>
-                              개념 미입력
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="wrong-note-card-actions">
-                          <Link
-                            to={`/wrong-notes/${wrongNote.id}`}
-                          >
-                            상세보기
-                            <ArrowRight
-                              size={15}
-                            />
-                          </Link>
-
-                          <button
-                            type="button"
-                            disabled={
-                              deletingWrongNoteId ===
-                              wrongNote.id
-                            }
-                            onClick={() =>
-                              void handleDelete(
-                                wrongNote.id,
-                              )
-                            }
-                            aria-label={`${wrongNote.unit} 오답 삭제`}
-                          >
-                            <Trash2
-                              size={17}
-                            />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                )
-              },
+                    </article>
+                  )
+                })}
+              </section>
             )}
-          </section>
-        )}
-      </div>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
+  return (
+    <main className="wrong-notes-page ai-review-page">
+      <section className="ai-review-hero">
+        <span className="ai-review-eyebrow">WRONG ANSWER ARCHIVE</span>
+        <h1>나의 오답 노트</h1>
+        <p>
+          과목별 오답 노트를 열어 틀린 문제와 복습 상태를 한눈에
+          확인해 보세요.
+        </p>
+      </section>
+
+      {isLoading ? (
+        <div className="review-page-message">
+          오답 노트를 불러오고 있습니다.
+        </div>
+      ) : loadError ? (
+        <div className="review-page-message is-error">
+          <strong>오답 노트를 불러오지 못했습니다.</strong>
+          <span>{loadError}</span>
+        </div>
+      ) : (
+        <section className="review-library">
+          <div className="review-library-heading">
+            <div>
+              <span>MY SUBJECTS</span>
+              <h2>과목별 오답 노트</h2>
+            </div>
+            <p>
+              노트를 선택하면 표지가 열리면서 해당 과목의 오답과
+              복습 상태가 나타납니다.
+            </p>
+          </div>
+
+          <SubjectBookshelf
+            items={subjectBookItems}
+            variant="wrong-note"
+            hoverLabel="오답 노트 열어보기"
+            emptyMessage="아직 등록된 과목이 없습니다."
+            onOpen={handleOpenSubjectBook}
+          />
+        </section>
+      )}
     </main>
   )
 }
