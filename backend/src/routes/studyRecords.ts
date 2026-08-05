@@ -35,9 +35,9 @@ const createStudyRecordSchema = z.object({
   subject: z.string().trim().min(1).max(50),
   unit: z.string().trim().min(1).max(150),
   minutes: z.coerce.number().int().min(0),
-  learned: z.string().trim().min(1),
-  difficult: z.string().trim().default(''),
-  keywords: z.string().trim().default(''),
+  learned: z.string().trim().min(1).max(5000, '학습 내용은 5000자를 초과할 수 없습니다.'),
+  difficult: z.string().trim().max(5000, '어려운 내용은 5000자를 초과할 수 없습니다.').default(''),
+  keywords: z.string().trim().max(1000, '키워드와 개념은 1000자를 초과할 수 없습니다.').default(''),
   understanding: z.coerce
     .number()
     .int()

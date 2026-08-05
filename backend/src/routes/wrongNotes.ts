@@ -35,11 +35,11 @@ const createWrongNoteSchema = z.object({
     ),
   subject: z.string().trim().min(1).max(50),
   unit: z.string().trim().max(150),
-  mistakeQuestion: z.string().trim().min(1),
-  wrongAnswer: z.string().trim().min(1),
-  correctAnswer: z.string().trim().min(1),
-  mistakeReason: z.string().trim().min(1),
-  concepts: z.string().trim().min(1),
+  mistakeQuestion: z.string().trim().min(1).max(5000, '문제 내용은 5000자를 초과할 수 없습니다.'),
+  wrongAnswer: z.string().trim().min(1).max(2000, '오답은 2000자를 초과할 수 없습니다.'),
+  correctAnswer: z.string().trim().min(1).max(2000, '정답은 2000자를 초과할 수 없습니다.'),
+  mistakeReason: z.string().trim().min(1).max(5000, '틀린 이유는 5000자를 초과할 수 없습니다.'),
+  concepts: z.string().trim().min(1).max(1000, '키워드와 개념은 1000자를 초과할 수 없습니다.'),
 })
 
 function createImageUrl(
