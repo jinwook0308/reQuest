@@ -5,6 +5,7 @@ import {
 } from 'express'
 import { z } from 'zod'
 
+import { aiRateLimit } from '../middleware/aiRateLimit'
 import { APP_USER_EMAIL } from '../config/app'
 import { pool } from '../config/db'
 import { isOpenAIConfigured } from '../config/openai'
@@ -177,6 +178,7 @@ async function generateReviewQuestions(
  */
 reviewQuestDraftsRouter.post(
   '/:sourceType/:sourceId',
+  aiRateLimit,
   async (
     request: Request,
     response: Response,

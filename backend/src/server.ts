@@ -7,6 +7,7 @@ import express, {
   type Request,
   type Response,
 } from 'express'
+import helmet from 'helmet'
 import multer from 'multer'
 
 import { CORS_ORIGIN } from './config/app'
@@ -21,6 +22,16 @@ import wrongNotesRouter from './routes/wrongNotes'
 dotenv.config()
 
 const app = express()
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: {
+      policy: 'cross-origin',
+    },
+  }),
+)
+
+
 const PORT =
   Number(process.env.PORT) || 4000
 
