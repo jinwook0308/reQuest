@@ -13,14 +13,16 @@
 - 학습 시간, 이해도 변화, 과목별 통계, 학습 히트맵
 - PostgreSQL 기반 영구 저장
 
-현재 문제 초안은 규칙 기반 생성기에서 만듭니다. 실제 AI 연결 시에도 생성 결과를 바로 출제하지 않고 사용자가 문제·정답·해설을 검토한 뒤 저장하는 흐름을 유지할 예정입니다.
+복습 문제 초안은 OpenAI API를 이용해 생성합니다. OpenAI API 키가 설정되지 않았거나 AI 요청에 실패하면 규칙 기반 생성기를 대신 사용합니다. 생성된 문제는 바로 출제하지 않고 사용자가 문제·정답·해설을 검토하고 수정한 뒤 저장할 수 있습니다.
+
+AI 문제 생성 API는 과도한 호출과 비용 발생을 방지하기 위해 IP당 10분에 최대 10회로 제한됩니다. 제한을 초과하면 HTTP 429 응답을 반환합니다.
 
 복습 문제 초안은 `POST /api/review-quest-drafts/:sourceType/:sourceId`로 생성합니다. `sourceType`은 `study-record` 또는 `wrong-note`이며, 이 API는 초안만 반환하고 자동 저장하지 않습니다.
 
 ## 기술 스택
 
 - 프론트엔드: React, TypeScript, Vite, React Router, Recharts, Lucide React, 페이지별 CSS
-- 백엔드: Node.js, Express, TypeScript, Zod, Multer
+- 백엔드: Node.js, Express, TypeScript, Zod, Multer, OpenAI API, Helmet, express-rate-limit
 - 데이터베이스: PostgreSQL
 - 테스트: Node.js Test Runner, TypeScript 빌드, Oxlint
 
@@ -81,6 +83,10 @@ npm run dev
 - `CORS_ORIGIN`: 접근을 허용할 프론트엔드 주소
 - `APP_USER_EMAIL`: 로그인 기능 연결 전 사용할 개발용 사용자 이메일
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`: PostgreSQL 연결 정보
+- `OPENAI_API_KEY`: OpenAI 복습 문제 생성에 사용하는 비밀 API 키
+- `OPENAI_MODEL`: 문제 생성에 사용할 OpenAI 모델 이름
+
+> 실제 `.env` 파일과 `OPENAI_API_KEY`, 데이터베이스 비밀번호는 GitHub에 올리지 않습니다. `.env.example`에는 실제 비밀정보 대신 예시 값만 작성합니다.
 
 프론트엔드:
 
