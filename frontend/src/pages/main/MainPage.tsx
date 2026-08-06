@@ -28,11 +28,11 @@ import {
   Upload,
 } from 'lucide-react'
 
+import { apiFetch } from '../../lib/api'
 import './MainPage.css'
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:4000/api'
+import './MainPage.css'
+
 
 type StudyTask = {
   id: number
@@ -251,10 +251,13 @@ function MainPage() {
 
     async function loadStudyRecords() {
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/study-records`,
-          { signal: controller.signal },
+        const response = await apiFetch(
+          '/study-records',
+          {
+           signal: controller.signal ,
+          },
         )
+
         const result = (await response.json()) as {
           success: boolean
           message?: string

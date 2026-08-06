@@ -3,177 +3,267 @@ import {
   type Request,
   type Response,
 } from 'express'
-import {
-  z,
-} from 'zod'
-import {
-  type PoolClient,
+import type {
+  PoolClient,
 } from 'pg'
+import { z } from 'zod'
 
 import { pool } from '../config/db'
-import { APP_USER_EMAIL } from '../config/app'
+import {
+  requireAuth,
+} from '../middleware/requireAuth'
 import {
   gradeAnswer,
   gradeSubmittedAnswers,
   type GradedQuizAnswer,
 } from '../services/quizGrading'
 
-const reviewQuestsRouter = Router()
+const reviewQuestsRouter =
+  Router()
 
-const DEVELOPMENT_USER_EMAIL =
-  APP_USER_EMAIL
+reviewQuestsRouter.use(requireAuth)
 
-const sourceParamsSchema = z.object({
-  sourceType: z.enum([
-    'study-record',
-    'wrong-note',
-  ]),
+const sourceParamsSchema =
+  z.object({
+    sourceType: z.enum([
+      'study-record',
+      'wrong-note',
+    ]),
 
-  sourceId: z.coerce
-    .number()
-    .int()
-    .positive(),
-})
-
-const questionSchema = z.object({
-  id: z.number().int().positive(),
-
-  kind: z.enum([
-    'multiple-choice',
-    'ox',
-    'short-answer',
-  ]),
-
-  concept: z.string().trim().min(1).max(1000, '키워드와 개념은 1000자를 초과할 수 없습니다.'),
-  prompt: z.string().trim().min(1).max(5000, '복습 문제는 5000자를 초과할 수 없습니다.'),
-
-  options: z
-    .array(z.string().trim().max(1000, '선택지 내용은 1000자를 초과할 수 없습니다.'))
-    .max(4),
-
-  answer: z.string().trim().min(1).max(2000, '정답은 2000자를 초과할 수 없습니다.'),
-  explanation: z.string().trim().min(1).max(5000, '해설은 5000자를 초과할 수 없습니다.'),
-})
-
-const saveQuestSetSchema = z
-  .object({
-    questions: z
-      .array(questionSchema)
-      .min(3)
-      .max(5),
+    sourceId: z.coerce
+      .number()
+      .int()
+      .positive(),
   })
-  .superRefine((data, context) => {
-    data.questions.forEach(
-      (question, questionIndex) => {
-        if (
-          question.kind ===
-          'multiple-choice'
-        ) {
-          if (
-            question.options.length !== 4
-          ) {
-            context.addIssue({
-              code: 'custom',
-              path: [
-                'questions',
-                questionIndex,
-                'options',
-              ],
-              message:
-                '객관식 문제는 선택지가 4개여야 합니다.',
-            })
 
-            return
-          }
+const questionSchema =
+  z.object({
+    id: z
+      .number()
+      .int()
+      .positive(),
 
-          if (
-            question.options.some(
-              (option) => !option.trim(),
-            )
-          ) {
-            context.addIssue({
-              code: 'custom',
-              path: [
-                'questions',
-                questionIndex,
-                'options',
-              ],
-              message:
-                '객관식 선택지를 모두 입력해 주세요.',
-            })
-          }
+    kind: z.enum([
+      'multiple-choice',
+      'ox',
+      'short-answer',
+    ]),
 
-          if (
-            !question.options.includes(
-              question.answer,
-            )
-          ) {
-            context.addIssue({
-              code: 'custom',
-              path: [
-                'questions',
-                questionIndex,
-                'answer',
-              ],
-              message:
-                '객관식 정답은 선택지 중 하나여야 합니다.',
-            })
-          }
-        }
+    concept: z
+      .string()
+      .trim()
+      .min(1)
+      .max(
+        1000,
+        '키워드와 개념은 1000자를 초과할 수 없습니다.',
+      ),
 
-        if (
-          question.kind === 'ox' &&
-          !['O', 'X'].includes(
-            question.answer,
-          )
-        ) {
-          context.addIssue({
-            code: 'custom',
-            path: [
-              'questions',
-              questionIndex,
-              'answer',
-            ],
-            message:
-              'OX 문제의 정답은 O 또는 X여야 합니다.',
-          })
-        }
+    prompt: z
+      .string()
+      .trim()
+      .min(1)
+      .max(
+        5000,
+        '복습 문제는 5000자를 초과할 수 없습니다.',
+      ),
+
+    options: z
+      .array(
+        z
+          .string()
+          .trim()
+          .max(
+            1000,
+            '선택지 내용은 1000자를 초과할 수 없습니다.',
+          ),
+      )
+      .max(4),
+
+    answer: z
+      .string()
+      .trim()
+      .min(1)
+      .max(
+        2000,
+        '정답은 2000자를 초과할 수 없습니다.',
+      ),
+
+    explanation: z
+      .string()
+      .trim()
+      .min(1)
+      .max(
+        5000,
+        '해설은 5000자를 초과할 수 없습니다.',
+      ),
+  })
+
+const saveQuestSetSchema =
+  z
+    .object({
+      questions: z
+        .array(questionSchema)
+        .min(3)
+        .max(5),
+    })
+    .superRefine(
+      (data, context) => {
+        data.questions.forEach(
+          (
+            question,
+            questionIndex,
+          ) => {
+            if (
+              question.kind ===
+              'multiple-choice'
+            ) {
+              if (
+                question.options
+                  .length !== 4
+              ) {
+                context.addIssue({
+                  code: 'custom',
+                  path: [
+                    'questions',
+                    questionIndex,
+                    'options',
+                  ],
+                  message:
+                    '객관식 문제는 선택지가 4개여야 합니다.',
+                })
+
+                return
+              }
+
+              if (
+                question.options.some(
+                  (option) =>
+                    !option.trim(),
+                )
+              ) {
+                context.addIssue({
+                  code: 'custom',
+                  path: [
+                    'questions',
+                    questionIndex,
+                    'options',
+                  ],
+                  message:
+                    '객관식 선택지를 모두 입력해 주세요.',
+                })
+              }
+
+              if (
+                !question.options.includes(
+                  question.answer,
+                )
+              ) {
+                context.addIssue({
+                  code: 'custom',
+                  path: [
+                    'questions',
+                    questionIndex,
+                    'answer',
+                  ],
+                  message:
+                    '객관식 정답은 선택지 중 하나여야 합니다.',
+                })
+              }
+            }
+
+            if (
+              question.kind ===
+                'ox' &&
+              !['O', 'X'].includes(
+                question.answer,
+              )
+            ) {
+              context.addIssue({
+                code: 'custom',
+                path: [
+                  'questions',
+                  questionIndex,
+                  'answer',
+                ],
+                message:
+                  'OX 문제의 정답은 O 또는 X여야 합니다.',
+              })
+            }
+          },
+        )
       },
     )
-  })
 
-const quizAnswerSchema = z.object({
-  questionId: z.number().int().positive(),
-  userAnswer: z.string().max(5000, '퀴즈 답변은 5000자를 초과할 수 없습니다.'),
-})
+const quizAnswerSchema =
+  z.object({
+    questionId: z
+      .number()
+      .int()
+      .positive(),
+
+    userAnswer: z
+      .string()
+      .max(
+        5000,
+        '퀴즈 답변은 5000자를 초과할 수 없습니다.',
+      ),
+  })
 
 const storedGradedAnswerSchema =
   quizAnswerSchema.extend({
     isCorrect: z.boolean(),
   })
 
-const gradeAnswerSchema = z.object({
-  questionId: z.number().int().positive(),
-  userAnswer: z.string().max(5000, '퀴즈 답변은 5000자를 초과할 수 없습니다.'),
-})
+const gradeAnswerSchema =
+  z.object({
+    questionId: z
+      .number()
+      .int()
+      .positive(),
 
-const saveAttemptSchema = z.object({
-  answers: z
-    .array(quizAnswerSchema)
-    .min(1),
+    userAnswer: z
+      .string()
+      .max(
+        5000,
+        '퀴즈 답변은 5000자를 초과할 수 없습니다.',
+      ),
+  })
 
-  mode: z.enum([
-    'original',
-    'retry',
-  ]),
-})
+const saveAttemptSchema =
+  z.object({
+    answers: z
+      .array(quizAnswerSchema)
+      .min(1),
+
+    mode: z.enum([
+      'original',
+      'retry',
+    ]),
+  })
 
 type SourceType =
   | 'study-record'
   | 'wrong-note'
 
+function getAuthenticatedUserId(
+  request: Request,
+) {
+  const userId =
+    request.authUser?.id
+
+  if (!userId) {
+    throw new Error(
+      '인증 사용자 정보가 없습니다.',
+    )
+  }
+
+  return userId
+}
+
 function createQuizQuestions(
-  questions: z.infer<typeof questionSchema>[],
+  questions: z.infer<
+    typeof questionSchema
+  >[],
 ) {
   return questions.map(
     ({
@@ -182,30 +272,6 @@ function createQuizQuestions(
       ...question
     }) => question,
   )
-}
-
-async function getDevelopmentUserId(
-  client: PoolClient,
-) {
-  const result = await client.query(
-    `
-      SELECT id
-      FROM users
-      WHERE email = $1
-      LIMIT 1
-    `,
-    [DEVELOPMENT_USER_EMAIL],
-  )
-
-  if (result.rows.length === 0) {
-    throw new Error(
-      '개발용 사용자를 찾지 못했습니다.',
-    )
-  }
-
-  return result.rows[0].id as
-    | number
-    | string
 }
 
 async function sourceExists(
@@ -233,10 +299,14 @@ async function sourceExists(
           LIMIT 1
         `
 
-  const result = await client.query(
-    query,
-    [sourceId, userId],
-  )
+  const result =
+    await client.query(
+      query,
+      [
+        sourceId,
+        userId,
+      ],
+    )
 
   return result.rows.length > 0
 }
@@ -272,11 +342,14 @@ async function updateSourceStatus(
             AND user_id = $3
         `
 
-  await client.query(query, [
-    status,
-    sourceId,
-    userId,
-  ])
+  await client.query(
+    query,
+    [
+      status,
+      sourceId,
+      userId,
+    ],
+  )
 }
 
 /**
@@ -300,9 +373,13 @@ reviewQuestsRouter.get(
         message:
           '퀴즈 주소가 올바르지 않습니다.',
       })
-
       return
     }
+
+    const userId =
+      getAuthenticatedUserId(
+        request,
+      )
 
     const {
       sourceType,
@@ -310,56 +387,58 @@ reviewQuestsRouter.get(
     } = paramsResult.data
 
     try {
-      const result = await pool.query(
-        `
-          SELECT
-            review_quest_sets.id,
-            review_quest_sets.source_type
-              AS "sourceType",
-            review_quest_sets.source_id
-              AS "sourceId",
-            review_quest_sets.status,
-            review_quest_sets.questions,
-            review_quest_sets.updated_at
-              AS "updatedAt"
+      const result =
+        await pool.query(
+          `
+            SELECT
+              id,
+              source_type
+                AS "sourceType",
+              source_id
+                AS "sourceId",
+              status,
+              questions,
+              updated_at
+                AS "updatedAt"
 
-          FROM review_quest_sets
+            FROM review_quest_sets
 
-          INNER JOIN users
-            ON users.id =
-              review_quest_sets.user_id
+            WHERE
+              user_id = $1
+              AND source_type = $2
+              AND source_id = $3
 
-          WHERE
-            users.email = $1
-            AND review_quest_sets.source_type = $2
-            AND review_quest_sets.source_id = $3
+            LIMIT 1
+          `,
+          [
+            userId,
+            sourceType,
+            sourceId,
+          ],
+        )
 
-          LIMIT 1
-        `,
-        [
-          DEVELOPMENT_USER_EMAIL,
-          sourceType,
-          sourceId,
-        ],
-      )
-
-      if (result.rows.length === 0) {
+      if (
+        result.rows.length === 0
+      ) {
         response.status(404).json({
           success: false,
           message:
             '검토 완료된 복습 문제가 없습니다.',
         })
-
         return
       }
 
-      const questionsResult = z
-        .array(questionSchema)
-        .safeParse(
-          result.rows[0].questions,
-        )
+      const questionsResult =
+        z
+          .array(questionSchema)
+          .safeParse(
+            result.rows[0]
+              .questions,
+          )
 
-      if (!questionsResult.success) {
+      if (
+        !questionsResult.success
+      ) {
         throw new Error(
           '저장된 복습 문제 형식이 올바르지 않습니다.',
         )
@@ -369,9 +448,10 @@ reviewQuestsRouter.get(
         success: true,
         data: {
           ...result.rows[0],
-          questions: createQuizQuestions(
-            questionsResult.data,
-          ),
+          questions:
+            createQuizQuestions(
+              questionsResult.data,
+            ),
         },
       })
     } catch (error) {
@@ -418,9 +498,13 @@ reviewQuestsRouter.post(
         message:
           '제출한 답안을 확인해 주세요.',
       })
-
       return
     }
+
+    const userId =
+      getAuthenticatedUserId(
+        request,
+      )
 
     const {
       sourceType,
@@ -433,46 +517,48 @@ reviewQuestsRouter.post(
     } = bodyResult.data
 
     try {
-      const result = await pool.query(
-        `
-          SELECT review_quest_sets.questions
-          FROM review_quest_sets
+      const result =
+        await pool.query(
+          `
+            SELECT questions
+            FROM review_quest_sets
 
-          INNER JOIN users
-            ON users.id =
-              review_quest_sets.user_id
+            WHERE
+              user_id = $1
+              AND source_type = $2
+              AND source_id = $3
 
-          WHERE
-            users.email = $1
-            AND review_quest_sets.source_type = $2
-            AND review_quest_sets.source_id = $3
+            LIMIT 1
+          `,
+          [
+            userId,
+            sourceType,
+            sourceId,
+          ],
+        )
 
-          LIMIT 1
-        `,
-        [
-          DEVELOPMENT_USER_EMAIL,
-          sourceType,
-          sourceId,
-        ],
-      )
-
-      if (result.rows.length === 0) {
+      if (
+        result.rows.length === 0
+      ) {
         response.status(404).json({
           success: false,
           message:
             '채점할 복습 문제를 찾지 못했습니다.',
         })
-
         return
       }
 
-      const questionsResult = z
-        .array(questionSchema)
-        .safeParse(
-          result.rows[0].questions,
-        )
+      const questionsResult =
+        z
+          .array(questionSchema)
+          .safeParse(
+            result.rows[0]
+              .questions,
+          )
 
-      if (!questionsResult.success) {
+      if (
+        !questionsResult.success
+      ) {
         throw new Error(
           '저장된 복습 문제 형식이 올바르지 않습니다.',
         )
@@ -491,7 +577,6 @@ reviewQuestsRouter.post(
           message:
             '채점할 문제를 찾지 못했습니다.',
         })
-
         return
       }
 
@@ -499,10 +584,11 @@ reviewQuestsRouter.post(
         success: true,
         data: {
           questionId,
-          isCorrect: gradeAnswer(
-            question,
-            userAnswer,
-          ),
+          isCorrect:
+            gradeAnswer(
+              question,
+              userAnswer,
+            ),
           correctAnswer:
             question.answer,
           explanation:
@@ -545,9 +631,13 @@ reviewQuestsRouter.get(
         message:
           '복습 문제 주소가 올바르지 않습니다.',
       })
-
       return
     }
+
+    const userId =
+      getAuthenticatedUserId(
+        request,
+      )
 
     const {
       sourceType,
@@ -555,48 +645,46 @@ reviewQuestsRouter.get(
     } = paramsResult.data
 
     try {
-      const result = await pool.query(
-        `
-          SELECT
-            review_quest_sets.id,
-            review_quest_sets.source_type
-              AS "sourceType",
-            review_quest_sets.source_id
-              AS "sourceId",
-            review_quest_sets.status,
-            review_quest_sets.questions,
-            review_quest_sets.created_at
-              AS "createdAt",
-            review_quest_sets.updated_at
-              AS "updatedAt"
+      const result =
+        await pool.query(
+          `
+            SELECT
+              id,
+              source_type
+                AS "sourceType",
+              source_id
+                AS "sourceId",
+              status,
+              questions,
+              created_at
+                AS "createdAt",
+              updated_at
+                AS "updatedAt"
 
-          FROM review_quest_sets
+            FROM review_quest_sets
 
-          INNER JOIN users
-            ON users.id =
-              review_quest_sets.user_id
+            WHERE
+              user_id = $1
+              AND source_type = $2
+              AND source_id = $3
 
-          WHERE
-            users.email = $1
-            AND review_quest_sets.source_type = $2
-            AND review_quest_sets.source_id = $3
+            LIMIT 1
+          `,
+          [
+            userId,
+            sourceType,
+            sourceId,
+          ],
+        )
 
-          LIMIT 1
-        `,
-        [
-          DEVELOPMENT_USER_EMAIL,
-          sourceType,
-          sourceId,
-        ],
-      )
-
-      if (result.rows.length === 0) {
+      if (
+        result.rows.length === 0
+      ) {
         response.status(404).json({
           success: false,
           message:
             '저장된 복습 문제가 없습니다.',
         })
-
         return
       }
 
@@ -640,7 +728,6 @@ reviewQuestsRouter.put(
         message:
           '복습 문제 주소가 올바르지 않습니다.',
       })
-
       return
     }
 
@@ -655,12 +742,17 @@ reviewQuestsRouter.put(
         message:
           '복습 문제 내용을 확인해 주세요.',
         errors:
-          bodyResult.error.flatten()
+          bodyResult.error
+            .flatten()
             .fieldErrors,
       })
-
       return
     }
+
+    const userId =
+      getAuthenticatedUserId(
+        request,
+      )
 
     const {
       sourceType,
@@ -676,11 +768,6 @@ reviewQuestsRouter.put(
     try {
       await client.query('BEGIN')
 
-      const userId =
-        await getDevelopmentUserId(
-          client,
-        )
-
       const exists =
         await sourceExists(
           client,
@@ -690,14 +777,15 @@ reviewQuestsRouter.put(
         )
 
       if (!exists) {
-        await client.query('ROLLBACK')
+        await client.query(
+          'ROLLBACK',
+        )
 
         response.status(404).json({
           success: false,
           message:
             '복습 문제를 만들 학습 자료를 찾지 못했습니다.',
         })
-
         return
       }
 
@@ -747,7 +835,9 @@ reviewQuestsRouter.put(
             userId,
             sourceType,
             sourceId,
-            JSON.stringify(questions),
+            JSON.stringify(
+              questions,
+            ),
           ],
         )
 
@@ -768,7 +858,9 @@ reviewQuestsRouter.put(
         data: result.rows[0],
       })
     } catch (error) {
-      await client.query('ROLLBACK')
+      await client.query(
+        'ROLLBACK',
+      )
 
       console.error(
         '복습 문제 저장 실패:',
@@ -807,7 +899,6 @@ reviewQuestsRouter.post(
         message:
           '퀴즈 주소가 올바르지 않습니다.',
       })
-
       return
     }
 
@@ -822,9 +913,13 @@ reviewQuestsRouter.post(
         message:
           '퀴즈 결과를 확인해 주세요.',
       })
-
       return
     }
+
+    const userId =
+      getAuthenticatedUserId(
+        request,
+      )
 
     const {
       sourceType,
@@ -841,11 +936,6 @@ reviewQuestsRouter.post(
 
     try {
       await client.query('BEGIN')
-
-      const userId =
-        await getDevelopmentUserId(
-          client,
-        )
 
       const questSetResult =
         await client.query(
@@ -868,30 +958,35 @@ reviewQuestsRouter.post(
         )
 
       if (
-        questSetResult.rows.length === 0
+        questSetResult.rows
+          .length === 0
       ) {
-        await client.query('ROLLBACK')
+        await client.query(
+          'ROLLBACK',
+        )
 
         response.status(404).json({
           success: false,
           message:
             '저장된 복습 문제를 찾지 못했습니다.',
         })
-
         return
       }
 
       const questSetId =
         questSetResult.rows[0].id
 
-      const questionsResult = z
-        .array(questionSchema)
-        .safeParse(
-          questSetResult.rows[0]
-            .questions,
-        )
+      const questionsResult =
+        z
+          .array(questionSchema)
+          .safeParse(
+            questSetResult.rows[0]
+              .questions,
+          )
 
-      if (!questionsResult.success) {
+      if (
+        !questionsResult.success
+      ) {
         throw new Error(
           '저장된 복습 문제 형식이 올바르지 않습니다.',
         )
@@ -899,8 +994,10 @@ reviewQuestsRouter.post(
 
       let expectedQuestionIds =
         questionsResult.data.map(
-          (question) => question.id,
+          (question) =>
+            question.id,
         )
+
       let savedRetryRound = 0
 
       if (mode === 'retry') {
@@ -909,23 +1006,31 @@ reviewQuestsRouter.post(
             `
               SELECT
                 answers,
-                retry_round AS "retryRound"
+                retry_round
+                  AS "retryRound"
               FROM quiz_attempts
               WHERE
                 user_id = $1
                 AND quest_set_id = $2
-                AND status = 'retry-required'
-              ORDER BY completed_at DESC
+                AND status =
+                  'retry-required'
+              ORDER BY
+                completed_at DESC
               LIMIT 1
             `,
-            [userId, questSetId],
+            [
+              userId,
+              questSetId,
+            ],
           )
 
         if (
-          previousAttemptResult.rows.length ===
-          0
+          previousAttemptResult.rows
+            .length === 0
         ) {
-          await client.query('ROLLBACK')
+          await client.query(
+            'ROLLBACK',
+          )
 
           response.status(400).json({
             success: false,
@@ -935,14 +1040,19 @@ reviewQuestsRouter.post(
           return
         }
 
-        const previousAnswersResult = z
-          .array(storedGradedAnswerSchema)
-          .safeParse(
-            previousAttemptResult.rows[0]
-              .answers,
-          )
+        const previousAnswersResult =
+          z
+            .array(
+              storedGradedAnswerSchema,
+            )
+            .safeParse(
+              previousAttemptResult
+                .rows[0].answers,
+            )
 
-        if (!previousAnswersResult.success) {
+        if (
+          !previousAnswersResult.success
+        ) {
           throw new Error(
             '저장된 이전 퀴즈 결과 형식이 올바르지 않습니다.',
           )
@@ -961,16 +1071,18 @@ reviewQuestsRouter.post(
 
         savedRetryRound =
           Number(
-            previousAttemptResult.rows[0]
-              .retryRound,
+            previousAttemptResult
+              .rows[0].retryRound,
           ) + 1
       }
 
-      const submittedQuestionIds = new Set(
-        answers.map(
-          (answer) => answer.questionId,
-        ),
-      )
+      const submittedQuestionIds =
+        new Set(
+          answers.map(
+            (answer) =>
+              answer.questionId,
+          ),
+        )
 
       const answersCoverExpectedQuestions =
         submittedQuestionIds.size ===
@@ -982,8 +1094,12 @@ reviewQuestsRouter.post(
             ),
         )
 
-      if (!answersCoverExpectedQuestions) {
-        await client.query('ROLLBACK')
+      if (
+        !answersCoverExpectedQuestions
+      ) {
+        await client.query(
+          'ROLLBACK',
+        )
 
         response.status(400).json({
           success: false,
@@ -1003,7 +1119,9 @@ reviewQuestsRouter.post(
             answers,
           )
       } catch (error) {
-        await client.query('ROLLBACK')
+        await client.query(
+          'ROLLBACK',
+        )
 
         response.status(400).json({
           success: false,
@@ -1012,7 +1130,6 @@ reviewQuestsRouter.post(
               ? error.message
               : '제출한 답안을 확인해 주세요.',
         })
-
         return
       }
 
@@ -1109,7 +1226,9 @@ reviewQuestsRouter.post(
         data: attemptResult.rows[0],
       })
     } catch (error) {
-      await client.query('ROLLBACK')
+      await client.query(
+        'ROLLBACK',
+      )
 
       console.error(
         '퀴즈 결과 저장 실패:',

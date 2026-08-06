@@ -14,15 +14,15 @@ import {
   Trash2,
 } from 'lucide-react'
 
+import { apiFetch } from '../../lib/api'
+
+
 import SubjectBookshelf, {
   type SubjectBookItem,
 } from '../../components/subject-bookshelf/SubjectBookshelf'
 
 import './WrongNotesPage.css'
 import '../ai-review/AireviewPage.css'
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api'
 
 type WrongNoteStatus =
   | 'not-generated'
@@ -151,12 +151,8 @@ function WrongNotesPage() {
         setLoadError('')
 
         const [wrongNotesResponse, subjectsResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/wrong-notes`, {
-            signal: controller.signal,
-          }),
-          fetch(`${API_BASE_URL}/subjects`, {
-            signal: controller.signal,
-          }),
+          apiFetch('/wrong-notes', { signal: controller.signal }),
+          apiFetch('/subjects', { signal: controller.signal }),
         ])
         const wrongNotesResult =
           (await wrongNotesResponse.json()) as WrongNotesApiResponse
@@ -306,8 +302,8 @@ function WrongNotesPage() {
     try {
       setDeletingWrongNoteId(wrongNoteId)
 
-      const response = await fetch(
-        `${API_BASE_URL}/wrong-notes/${wrongNoteId}`,
+      const response = await apiFetch(
+        `/wrong-notes/${wrongNoteId}`,
         { method: 'DELETE' },
       )
       const result =

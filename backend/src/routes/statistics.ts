@@ -5,10 +5,15 @@ import {
 } from 'express'
 import { z } from 'zod'
 
-import { APP_USER_EMAIL } from '../config/app'
 import { pool } from '../config/db'
+import {
+  requireAuth,
+} from '../middleware/requireAuth'
 
-const statisticsRouter = Router()
+const statisticsRouter =
+  Router()
+
+statisticsRouter.use(requireAuth)
 
 const querySchema = z.object({
   days: z.coerce
@@ -29,9 +34,22 @@ statisticsRouter.get(
     request: Request,
     response: Response,
   ) => {
-    const queryResult = querySchema.safeParse(
-      request.query,
-    )
+    const userId =
+      request.authUser?.id
+
+    if (!userId) {
+      response.status(401).json({
+        success: false,
+        message:
+          '로그인이 필요합니다.',
+      })
+      return
+    }
+
+    const queryResult =
+      querySchema.safeParse(
+        request.query,
+      )
 
     if (!queryResult.success) {
       response.status(400).json({
@@ -42,7 +60,8 @@ statisticsRouter.get(
       return
     }
 
-    const { days } = queryResult.data
+    const { days } =
+      queryResult.data
 
     try {
       const [
@@ -61,7 +80,9 @@ statisticsRouter.get(
                 AS "recordCount",
 
               COALESCE(
-                SUM(study_records.minutes),
+                SUM(
+                  study_records.minutes
+                ),
                 0
               )::INTEGER
                 AS "totalMinutes",
@@ -76,16 +97,12 @@ statisticsRouter.get(
 
             FROM study_records
 
-            INNER JOIN users
-              ON users.id =
-                study_records.user_id
-
             LEFT JOIN subjects
               ON subjects.id =
                 study_records.subject_id
 
             WHERE
-              users.email = $1
+              study_records.user_id = $1
               AND study_records.study_date
                 >= CURRENT_DATE
                 - ($2::INTEGER - 1)
@@ -98,7 +115,7 @@ statisticsRouter.get(
               subject ASC
           `,
           [
-            APP_USER_EMAIL,
+            userId,
             days,
           ],
         ),
@@ -115,7 +132,9 @@ statisticsRouter.get(
                 AS "recordCount",
 
               COALESCE(
-                SUM(study_records.minutes),
+                SUM(
+                  study_records.minutes
+                ),
                 0
               )::INTEGER
                 AS "totalMinutes",
@@ -130,12 +149,8 @@ statisticsRouter.get(
 
             FROM study_records
 
-            INNER JOIN users
-              ON users.id =
-                study_records.user_id
-
             WHERE
-              users.email = $1
+              study_records.user_id = $1
               AND study_records.study_date
                 >= CURRENT_DATE
                 - ($2::INTEGER - 1)
@@ -147,7 +162,7 @@ statisticsRouter.get(
               study_records.study_date ASC
           `,
           [
-            APP_USER_EMAIL,
+            userId,
             days,
           ],
         ),
@@ -191,8 +206,10 @@ statisticsRouter.get(
                 totalMinutes > 0
                   ? Number(
                       (
-                        (subjectMinutes /
-                          totalMinutes) *
+                        (
+                          subjectMinutes /
+                          totalMinutes
+                        ) *
                         100
                       ).toFixed(1),
                     )

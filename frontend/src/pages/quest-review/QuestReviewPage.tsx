@@ -20,10 +20,7 @@ import {
 } from 'lucide-react'
 
 import './QuestReviewPage.css'
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:4000/api'
+import { apiFetch } from '../../lib/api'
 
 type SourceType =
   | 'study-record'
@@ -142,8 +139,8 @@ async function loadSourceRecord(
   signal: AbortSignal,
 ): Promise<SourceRecord> {
   if (sourceType === 'wrong-note') {
-    const response = await fetch(
-      `${API_BASE_URL}/wrong-notes/${sourceId}`,
+    const response = await apiFetch(
+      `/wrong-notes/${sourceId}`,
       { signal },
     )
 
@@ -194,8 +191,8 @@ async function loadSourceRecord(
     }
   }
 
-  const response = await fetch(
-    `${API_BASE_URL}/study-records/${sourceId}`,
+  const response = await apiFetch(
+    `/study-records/${sourceId}`,
     { signal },
   )
 
@@ -248,8 +245,8 @@ async function loadQuestSet(
   sourceId: string,
   signal: AbortSignal,
 ) {
-  const response = await fetch(
-    `${API_BASE_URL}/review-quests/${sourceType}/${sourceId}`,
+  const response = await apiFetch(
+    `/review-quests/${sourceType}/${sourceId}`,
     { signal },
   )
 
@@ -278,8 +275,8 @@ async function generateQuestDraft(
   sourceType: SourceType,
   sourceId: string,
 ): Promise<QuestDraftApiItem> {
-  const response = await fetch(
-    `${API_BASE_URL}/review-quest-drafts/${sourceType}/${sourceId}`,
+  const response = await apiFetch(
+    `/review-quest-drafts/${sourceType}/${sourceId}`,
     { method: 'POST' },
   )
 
@@ -761,8 +758,8 @@ function QuestReviewPage() {
       setSaveStatus('saving')
       setMessage('')
 
-      const response = await fetch(
-        `${API_BASE_URL}/review-quests/${sourceType}/${sourceId}`,
+      const response = await apiFetch(
+        `/review-quests/${sourceType}/${sourceId}`,
         {
           method: 'PUT',
           headers: {

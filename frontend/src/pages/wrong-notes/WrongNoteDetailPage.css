@@ -450,7 +450,8 @@
   padding-top: 5px;
 }
 
-.wrong-note-detail-actions > a {
+.wrong-note-detail-actions > a,
+.wrong-note-detail-actions > button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -459,7 +460,14 @@
   border-radius: 8px;
   font-size: 11px;
   font-weight: 600;
+  font-family: inherit;
   text-decoration: none;
+  cursor: pointer;
+}
+
+.wrong-note-detail-actions > button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .wrong-note-detail-list-button {
@@ -487,6 +495,13 @@
 .wrong-note-detail-actions .wrong-note-detail-quest-button:hover {
   box-shadow: 0 8px 18px rgba(20, 20, 19, 0.23);
   transform: translateY(-1px);
+}
+
+.wrong-note-detail-quest-error {
+  margin: 0;
+  color: #b65143;
+  font-size: 11px;
+  text-align: right;
 }
 
 .wrong-note-detail-empty {
@@ -644,7 +659,8 @@
     grid-template-columns: 1fr;
   }
 
-  .wrong-note-detail-actions > a {
+  .wrong-note-detail-actions > a,
+  .wrong-note-detail-actions > button {
     width: 100%;
     padding: 0 12px;
   }

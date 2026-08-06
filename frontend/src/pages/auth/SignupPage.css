@@ -1,0 +1,112 @@
+.signup-form-section {
+  padding-top: 45px;
+  padding-bottom: 45px;
+}
+
+.signup-form-container {
+  width: min(100%, 440px);
+}
+
+.signup-form-header {
+  margin-bottom: 29px;
+}
+
+.signup-form {
+  gap: 17px;
+}
+
+.signup-copy-description {
+  margin-bottom: 0;
+}
+
+.signup-key-message {
+  margin: 13px 0 0;
+
+  color: rgba(
+    246,
+    243,
+    236,
+    0.88
+  );
+
+  font-family:
+    'Noto Serif KR',
+    Georgia,
+    serif;
+  font-size: clamp(
+    18px,
+    1.6vw,
+    23px
+  );
+  font-weight: 500;
+  line-height: 1.8;
+  letter-spacing: -0.6px;
+  word-break: keep-all;
+}
+
+.signup-key-message strong {
+  position: relative;
+  z-index: 0;
+
+  display: inline-block;
+
+  color: #f7f3ea;
+  font-weight: 700;
+}
+
+.signup-key-message strong::after {
+  position: absolute;
+  z-index: -1;
+  right: -2px;
+  bottom: 1px;
+  left: -2px;
+
+  height: 4px;
+
+  background: #d76f62;
+  border-radius: 999px;
+  opacity: 0.9;
+
+  content: '';
+  transform: rotate(-1deg);
+}
+
+.signup-password-guide {
+  margin: -7px 0 0;
+
+  color: #98958e;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+@media (max-width: 960px) {
+  .signup-form-section {
+    padding-top: 65px;
+    padding-bottom: 85px;
+  }
+
+  .signup-key-message {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 520px) {
+  .signup-form-section {
+    padding-top: 52px;
+    padding-bottom: 70px;
+  }
+
+  .signup-form-header {
+    margin-bottom: 27px;
+  }
+
+  .signup-key-message {
+    margin-top: 10px;
+    font-size: 17px;
+    line-height: 1.8;
+  }
+
+  .signup-key-message strong::after {
+    height: 3px;
+  }
+}

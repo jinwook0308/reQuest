@@ -20,12 +20,17 @@ import {
 import SubjectBookshelf, {
   type SubjectBookItem,
 } from '../../components/subject-bookshelf/SubjectBookshelf'
+import { apiFetch } from '../../lib/api'
+
+import SubjectCreateBook, {
+  type CreatedSubject,
+} from '../../components/subject-bookshelf/SubjectCreateBook'
+
 
 import './HistoryPage.css'
 import '../ai-review/AireviewPage.css'
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api'
+
 
 type SavedStudyRecord = {
   id: number
@@ -158,10 +163,10 @@ function HistoryPage() {
 
       try {
         const [recordsResponse, subjectsResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/study-records`, {
+          apiFetch('/study-records', {
             signal: controller.signal,
           }),
-          fetch(`${API_BASE_URL}/subjects`, {
+          apiFetch('/subjects', {
             signal: controller.signal,
           }),
         ])
@@ -227,6 +232,31 @@ function HistoryPage() {
 
     return () => controller.abort()
   }, [])
+
+
+
+const handleSubjectCreated = (
+  subject: CreatedSubject,
+) => {
+  setAvailableSubjects((previousSubjects) => {
+    const alreadyExists =
+      previousSubjects.some(
+        (previousSubject) =>
+          previousSubject.id === subject.id ||
+          previousSubject.name === subject.name,
+      )
+
+    if (alreadyExists) {
+      return previousSubjects
+    }
+
+    return [
+      ...previousSubjects,
+      subject,
+    ]
+  })
+}
+
 
   const subjectBookItems = useMemo<SubjectBookItem[]>(
     () =>
@@ -362,9 +392,11 @@ function HistoryPage() {
     }
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/study-records/${recordId}`,
-        { method: 'DELETE' },
+      const response = await apiFetch(
+        `/study-records/${recordId}`,
+        { 
+          method: 'DELETE' 
+        },
       )
       const result =
         (await response.json()) as DeleteStudyRecordApiResponse
@@ -678,8 +710,12 @@ function HistoryPage() {
             hoverLabel="학습 기록 열어보기"
             emptyMessage="아직 등록된 과목이 없습니다."
             onOpen={handleOpenSubjectBook}
-          />
-        </section>
+          >
+            <SubjectCreateBook
+              onCreated={handleSubjectCreated}
+            />
+        </SubjectBookshelf>
+      </section>
       )}
     </main>
   )

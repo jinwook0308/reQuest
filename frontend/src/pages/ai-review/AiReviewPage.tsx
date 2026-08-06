@@ -19,9 +19,9 @@ import {
 
 import './AireviewPage.css'
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:4000/api'
+import { apiFetch } from '../../lib/api'
+
+
 
 type Subject = {
   id: string
@@ -117,15 +117,12 @@ function AiReviewPage() {
           subjectsResponse,
           recordsResponse,
         ] = await Promise.all([
-          fetch(`${API_BASE_URL}/subjects`, {
+          apiFetch('/subjects', {
             signal: controller.signal,
           }),
-          fetch(
-            `${API_BASE_URL}/study-records`,
-            {
-              signal: controller.signal,
-            },
-          ),
+          apiFetch('/study-records', {
+            signal: controller.signal,
+          }),
         ])
 
         const subjectsResult =
@@ -307,8 +304,8 @@ function AiReviewPage() {
       setIsCreating(true)
       setCreateError('')
 
-      const response = await fetch(
-        `${API_BASE_URL}/subjects`,
+      const response = await apiFetch(
+        '/subjects',
         {
           method: 'POST',
           headers: {

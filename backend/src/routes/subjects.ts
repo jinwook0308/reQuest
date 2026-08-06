@@ -5,16 +5,21 @@ import {
 } from 'express'
 import { z } from 'zod'
 
-import { APP_USER_EMAIL } from '../config/app'
 import { pool } from '../config/db'
+import { requireAuth } from '../middleware/requireAuth'
 
 const subjectsRouter = Router()
+
+subjectsRouter.use(requireAuth)
 
 const createSubjectSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(1, '과목명을 입력해 주세요.')
+    .min(
+      1,
+      '과목명을 입력해 주세요.',
+    )
     .max(
       50,
       '과목명은 50자 이하로 입력해 주세요.',
@@ -24,23 +29,34 @@ const createSubjectSchema = z.object({
 subjectsRouter.get(
   '/',
   async (
-    _request: Request,
+    request: Request,
     response: Response,
   ) => {
+    const userId =
+      request.authUser?.id
+
+    if (!userId) {
+      response.status(401).json({
+        success: false,
+        message:
+          '로그인이 필요합니다.',
+      })
+      return
+    }
+
     try {
-      const result = await pool.query(
-        `
-          SELECT
-            subjects.id,
-            subjects.name
-          FROM subjects
-          INNER JOIN users
-            ON users.id = subjects.user_id
-          WHERE users.email = $1
-          ORDER BY subjects.id ASC
-        `,
-        [APP_USER_EMAIL],
-      )
+      const result =
+        await pool.query(
+          `
+            SELECT
+              id,
+              name
+            FROM subjects
+            WHERE user_id = $1
+            ORDER BY id ASC
+          `,
+          [userId],
+        )
 
       response.status(200).json({
         success: true,
@@ -61,16 +77,24 @@ subjectsRouter.get(
   },
 )
 
-/**
- * 사용자 과목 추가
- * POST /api/subjects
- */
 subjectsRouter.post(
   '/',
   async (
     request: Request,
     response: Response,
   ) => {
+    const userId =
+      request.authUser?.id
+
+    if (!userId) {
+      response.status(401).json({
+        success: false,
+        message:
+          '로그인이 필요합니다.',
+      })
+      return
+    }
+
     const bodyResult =
       createSubjectSchema.safeParse(
         request.body,
@@ -80,41 +104,31 @@ subjectsRouter.post(
       response.status(400).json({
         success: false,
         message:
-          bodyResult.error.issues[0]?.message ??
+          bodyResult.error
+            .issues[0]?.message ??
           '과목명이 올바르지 않습니다.',
       })
       return
     }
 
-    const { name } = bodyResult.data
+    const { name } =
+      bodyResult.data
 
     try {
-      const result = await pool.query(
-        `
-          INSERT INTO subjects (
-            user_id,
-            name
-          )
-          SELECT
-            users.id,
-            $1
-          FROM users
-          WHERE users.email = $2
-          RETURNING
-            subjects.id,
-            subjects.name
-        `,
-        [name, APP_USER_EMAIL],
-      )
-
-      if (result.rows.length === 0) {
-        response.status(404).json({
-          success: false,
-          message:
-            '과목을 추가할 사용자를 찾지 못했습니다.',
-        })
-        return
-      }
+      const result =
+        await pool.query(
+          `
+            INSERT INTO subjects (
+              user_id,
+              name
+            )
+            VALUES ($1, $2)
+            RETURNING
+              id,
+              name
+          `,
+          [userId, name],
+        )
 
       response.status(201).json({
         success: true,
@@ -123,11 +137,15 @@ subjectsRouter.post(
         data: result.rows[0],
       })
     } catch (error) {
-      const databaseError = error as {
-        code?: string
-      }
+      const databaseError =
+        error as {
+          code?: string
+        }
 
-      if (databaseError.code === '23505') {
+      if (
+        databaseError.code ===
+        '23505'
+      ) {
         response.status(409).json({
           success: false,
           message:

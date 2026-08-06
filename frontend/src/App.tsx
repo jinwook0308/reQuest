@@ -3,11 +3,30 @@ import {
   Suspense,
 } from 'react'
 import {
+  Navigate,
+  Outlet,
   Route,
   Routes,
+  useLocation,
 } from 'react-router'
 
+import { useAuth } from './auth/useAuth'
 import AppHeader from './components/layout/AppHeader'
+
+const LoginPage = lazy(
+  () =>
+    import(
+      './pages/auth/LoginPage'
+    ),
+)
+
+
+const SignupPage = lazy(
+  () =>
+    import(
+      './pages/auth/SignupPage'
+    ),
+)
 
 const MainPage = lazy(
   () =>
@@ -86,22 +105,73 @@ const WrongNoteDetailPage = lazy(
     ),
 )
 
-function App() {
+function PageLoading() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        display: 'grid',
+        placeItems: 'center',
+        minHeight: '100vh',
+        color: '#77756f',
+        background: '#f7f5ef',
+        fontFamily:
+          "'Noto Sans KR', sans-serif",
+      }}
+    >
+      페이지를 불러오는 중입니다.
+    </div>
+  )
+}
+
+function ProtectedLayout() {
+  const location = useLocation()
+
+  const {
+    user,
+    isLoading,
+  } = useAuth()
+
+  if (isLoading) {
+    return <PageLoading />
+  }
+
+  if (!user) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{
+          from: location.pathname,
+        }}
+      />
+    )
+  }
+
   return (
     <>
       <AppHeader />
+      <Outlet />
+    </>
+  )
+}
 
-      <Suspense
-        fallback={
-          <div
-            role="status"
-            aria-live="polite"
-          >
-            페이지를 불러오는 중입니다.
-          </div>
-        }
-      >
-        <Routes>
+function App() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <Routes>
+        <Route
+          path="/login"
+          element={<LoginPage />}
+        />
+
+        <Route
+          path="/signup"
+          element={<SignupPage />}
+        />
+
+        <Route element={<ProtectedLayout />}>
           <Route
             path="/"
             element={<MainPage />}
@@ -178,9 +248,19 @@ function App() {
               <StatisticsPage />
             }
           />
-        </Routes>
-      </Suspense>
-    </>
+        </Route>
+
+        <Route
+          path="*"
+          element={
+            <Navigate
+              to="/"
+              replace
+            />
+          }
+        />
+      </Routes>
+    </Suspense>
   )
 }
 
