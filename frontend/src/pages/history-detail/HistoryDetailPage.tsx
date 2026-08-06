@@ -25,9 +25,7 @@ import {
 
 import './HistoryDetailPage.css'
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:4000/api'
+import { apiFetch } from '../../lib/api'
 
 type SavedStudyRecord = {
   id: number
@@ -153,8 +151,8 @@ function HistoryDetailPage() {
       setLoadStatus('loading')
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/study-records/${recordId}`,
+        const response = await apiFetch(
+          `/study-records/${recordId}`,
         )
 
         const result =
@@ -303,8 +301,8 @@ function HistoryDetailPage() {
     }
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/study-records/${record.id}`,
+      const response = await apiFetch(
+        `/study-records/${record.id}`,
         {
           method: 'DELETE',
         },

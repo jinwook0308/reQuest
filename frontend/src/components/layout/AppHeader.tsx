@@ -1,20 +1,25 @@
 import {
+  useEffect,
+  useRef,
   useState,
 } from 'react'
 import {
   Link,
   useLocation,
+  useNavigate,
 } from 'react-router'
 import {
   Bell,
   BookOpen,
   ChevronDown,
+  LogOut,
   Menu,
   Search,
   UserRound,
   X,
 } from 'lucide-react'
 
+import { useAuth } from '../../auth/useAuth'
 import './AppHeader.css'
 
 type NavigationItem = {
@@ -96,10 +101,117 @@ function AppHeader() {
   const location =
     useLocation()
 
+  const navigate =
+    useNavigate()
+
+  const {
+    user,
+    logout,
+  } = useAuth()
+
+  const profileAreaRef =
+    useRef<HTMLDivElement>(null)
+
   const [
     isMenuOpen,
     setIsMenuOpen,
   ] = useState(false)
+
+  const [
+    isProfileOpen,
+    setIsProfileOpen,
+  ] = useState(false)
+
+  const [
+    isLoggingOut,
+    setIsLoggingOut,
+  ] = useState(false)
+
+  useEffect(() => {
+    setIsMenuOpen(false)
+    setIsProfileOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (!isProfileOpen) {
+      return
+    }
+
+    const handleOutsideClick = (
+      event: MouseEvent,
+    ) => {
+      if (
+        profileAreaRef.current &&
+        !profileAreaRef.current.contains(
+          event.target as Node,
+        )
+      ) {
+        setIsProfileOpen(false)
+      }
+    }
+
+    const handleEscape = (
+      event: KeyboardEvent,
+    ) => {
+      if (event.key === 'Escape') {
+        setIsProfileOpen(false)
+      }
+    }
+
+    document.addEventListener(
+      'mousedown',
+      handleOutsideClick,
+    )
+
+    document.addEventListener(
+      'keydown',
+      handleEscape,
+    )
+
+    return () => {
+      document.removeEventListener(
+        'mousedown',
+        handleOutsideClick,
+      )
+
+      document.removeEventListener(
+        'keydown',
+        handleEscape,
+      )
+    }
+  }, [isProfileOpen])
+
+  const handleLogout = async () => {
+    if (isLoggingOut) {
+      return
+    }
+
+    setIsLoggingOut(true)
+
+    try {
+      await logout()
+
+      navigate(
+        '/login',
+        {
+          replace: true,
+        },
+      )
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : '로그아웃에 실패했습니다.',
+      )
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
+
+  const profileName =
+    user?.nickname
+      ? `${user.nickname}님`
+      : '학습자님'
 
   return (
     <header className="app-header">
@@ -107,9 +219,10 @@ function AppHeader() {
         className="app-header-brand"
         to="/"
         aria-label="reQuest 홈"
-        onClick={() =>
+        onClick={() => {
           setIsMenuOpen(false)
-        }
+          setIsProfileOpen(false)
+        }}
       >
         <span className="app-header-brand-icon">
           <BookOpen
@@ -133,16 +246,15 @@ function AppHeader() {
             ? '메뉴 닫기'
             : '메뉴 열기'
         }
-        aria-expanded={
-          isMenuOpen
-        }
+        aria-expanded={isMenuOpen}
         aria-controls="app-navigation"
-        onClick={() =>
+        onClick={() => {
           setIsMenuOpen(
             (previous) =>
               !previous,
           )
-        }
+          setIsProfileOpen(false)
+        }}
       >
         {isMenuOpen ? (
           <X size={23} />
@@ -200,9 +312,7 @@ function AppHeader() {
                 className={`${className} is-preparing`}
                 key={item.label}
                 onClick={() => {
-                  setIsMenuOpen(
-                    false,
-                  )
+                  setIsMenuOpen(false)
 
                   showPreparingMessage(
                     item.label,
@@ -249,29 +359,82 @@ function AppHeader() {
           <span className="app-header-notification-dot" />
         </button>
 
-        <button
-          type="button"
-          className="app-header-profile-button"
-          onClick={() =>
-            showPreparingMessage(
-              '프로필',
-            )
-          }
+        <div
+          className="app-header-profile-area"
+          ref={profileAreaRef}
         >
-          <span className="app-header-profile-image">
-            <UserRound
-              size={22}
+          <button
+            type="button"
+            className="app-header-profile-button"
+            aria-expanded={
+              isProfileOpen
+            }
+            aria-controls="app-header-profile-menu"
+            onClick={() =>
+              setIsProfileOpen(
+                (previous) =>
+                  !previous,
+              )
+            }
+          >
+            <span className="app-header-profile-image">
+              <UserRound
+                size={22}
+              />
+            </span>
+
+            <span className="app-header-profile-name">
+              {profileName}
+            </span>
+
+            <ChevronDown
+              className={
+                isProfileOpen
+                  ? 'is-open'
+                  : ''
+              }
+              size={15}
             />
-          </span>
+          </button>
 
-          <span className="app-header-profile-name">
-            학습자님
-          </span>
+          {isProfileOpen && (
+            <div
+              id="app-header-profile-menu"
+              className="app-header-profile-menu"
+            >
+              <div className="app-header-profile-information">
+                <strong>
+                  {profileName}
+                </strong>
 
-          <ChevronDown
-            size={15}
-          />
-        </button>
+                <span>
+                  {user?.email}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                className="app-header-logout-button"
+                disabled={
+                  isLoggingOut
+                }
+                onClick={() =>
+                  void handleLogout()
+                }
+              >
+                <LogOut
+                  size={17}
+                />
+
+                <span>
+                  {isLoggingOut
+                    ? '로그아웃 중...'
+                    : '로그아웃'}
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   )

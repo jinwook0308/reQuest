@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
+@import url(
+  'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap'
+);
 
 .app-header,
 .app-header *,
@@ -14,17 +16,25 @@
 
   display: grid;
   grid-template-columns:
-    240px minmax(500px, 1fr) 240px;
+    240px
+    minmax(500px, 1fr)
+    240px;
   align-items: center;
 
   min-height: 86px;
   padding: 0 40px;
 
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom: 1px solid #e6e2da;
+  border-bottom:
+    1px solid #e6e2da;
+  color: #1c1c1a;
+  background: rgba(
+    255,
+    255,
+    255,
+    0.96
+  );
   backdrop-filter: blur(12px);
 
-  color: #1c1c1a;
   font-family:
     'Noto Sans KR',
     sans-serif;
@@ -105,10 +115,10 @@
 
   padding: 0 4px;
 
-  background: transparent;
   border: 0;
-
   color: #4d4c48;
+  background: transparent;
+
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
@@ -168,9 +178,9 @@
   height: 38px;
   padding: 0;
 
-  background: transparent;
   border: 0;
   border-radius: 50%;
+  background: transparent;
 
   cursor: pointer;
 }
@@ -188,9 +198,13 @@
   width: 6px;
   height: 6px;
 
-  background: #e9a43a;
   border: 1px solid #ffffff;
   border-radius: 50%;
+  background: #e9a43a;
+}
+
+.app-header-profile-area {
+  position: relative;
 }
 
 .app-header-profile-button {
@@ -200,10 +214,25 @@
 
   padding: 4px;
 
-  background: transparent;
   border: 0;
+  background: transparent;
 
   cursor: pointer;
+}
+
+.app-header-profile-button:hover {
+  border-radius: 999px;
+  background: #f5f3ef;
+}
+
+.app-header-profile-button > svg {
+  transition:
+    transform 160ms ease;
+}
+
+.app-header-profile-button
+  > svg.is-open {
+  transform: rotate(180deg);
 }
 
 .app-header-profile-image {
@@ -214,14 +243,104 @@
   width: 34px;
   height: 34px;
 
-  background: #ececea;
-  color: #bbb9b3;
   border-radius: 50%;
+  color: #bbb9b3;
+  background: #ececea;
 }
 
 .app-header-profile-name {
+  max-width: 105px;
+  overflow: hidden;
+
   font-size: 13px;
   font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-header-profile-menu {
+  position: absolute;
+  top: calc(100% + 14px);
+  right: 0;
+  z-index: 120;
+
+  width: 240px;
+  max-width: calc(100vw - 24px);
+  padding: 10px;
+
+  border: 1px solid #e3ded5;
+  border-radius: 14px;
+  background: rgba(
+    255,
+    255,
+    255,
+    0.98
+  );
+  box-shadow:
+    0 20px 45px
+      rgba(37, 31, 23, 0.14);
+
+  animation:
+    app-header-profile-open
+    160ms ease-out;
+}
+
+.app-header-profile-information {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  padding: 10px 11px 13px;
+}
+
+.app-header-profile-information strong {
+  overflow: hidden;
+
+  color: #25231f;
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-header-profile-information span {
+  overflow: hidden;
+
+  color: #8a857c;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-header-logout-button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  width: 100%;
+  min-height: 42px;
+  padding: 0 11px;
+
+  border: 0;
+  border-top:
+    1px solid #ede9e2;
+  border-radius: 8px;
+  color: #a34f44;
+  background: transparent;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.app-header-logout-button:hover {
+  background: #fff3f1;
+}
+
+.app-header-logout-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
 }
 
 .app-header-menu-button {
@@ -250,10 +369,24 @@
   outline-offset: 2px;
 }
 
+@keyframes app-header-profile-open {
+  from {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 1250px) {
   .app-header {
     grid-template-columns:
-      190px minmax(450px, 1fr) 190px;
+      190px
+      minmax(450px, 1fr)
+      190px;
 
     padding: 0 24px;
   }
@@ -293,16 +426,17 @@
     height: auto;
     padding: 10px 20px 18px;
 
+    border-bottom:
+      1px solid #e6e2da;
     background: rgba(
       255,
       255,
       255,
       0.98
     );
-    border-bottom: 1px solid #e6e2da;
     box-shadow:
       0 14px 30px
-      rgba(40, 35, 28, 0.08);
+        rgba(40, 35, 28, 0.08);
   }
 
   .app-header-navigation.is-open {
@@ -349,6 +483,15 @@
   .app-header-profile-name,
   .app-header-profile-button > svg {
     display: none;
+  }
+
+  .app-header-profile-button {
+    padding: 2px;
+  }
+
+  .app-header-profile-menu {
+    top: calc(100% + 12px);
+    right: 0;
   }
 
   .app-header-menu-button {

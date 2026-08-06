@@ -1,4 +1,6 @@
-import { unlink } from 'node:fs/promises'
+import {
+  unlink,
+} from 'node:fs/promises'
 import path from 'node:path'
 
 import {
@@ -9,38 +11,115 @@ import {
 import { z } from 'zod'
 
 import { pool } from '../config/db'
-import { APP_USER_EMAIL } from '../config/app'
 import {
   normalizeUploadedFileName,
   validateUploadedImage,
   wrongNoteImageUpload,
 } from '../config/upload'
+import {
+  requireAuth,
+} from '../middleware/requireAuth'
 
-const wrongNotesRouter = Router()
+const wrongNotesRouter =
+  Router()
 
-const DEVELOPMENT_USER_EMAIL =
-  APP_USER_EMAIL
+wrongNotesRouter.use(requireAuth)
 
-const createWrongNoteSchema = z.object({
-  studyRecordId: z
-    .string()
-    .trim()
-    .optional()
-    .default(''),
-  date: z
-    .string()
-    .regex(
-      /^\d{4}-\d{2}-\d{2}$/,
-      '날짜 형식이 올바르지 않습니다.',
-    ),
-  subject: z.string().trim().min(1).max(50),
-  unit: z.string().trim().max(150),
-  mistakeQuestion: z.string().trim().min(1).max(5000, '문제 내용은 5000자를 초과할 수 없습니다.'),
-  wrongAnswer: z.string().trim().min(1).max(2000, '오답은 2000자를 초과할 수 없습니다.'),
-  correctAnswer: z.string().trim().min(1).max(2000, '정답은 2000자를 초과할 수 없습니다.'),
-  mistakeReason: z.string().trim().min(1).max(5000, '틀린 이유는 5000자를 초과할 수 없습니다.'),
-  concepts: z.string().trim().min(1).max(1000, '키워드와 개념은 1000자를 초과할 수 없습니다.'),
-})
+const createWrongNoteSchema =
+  z.object({
+    studyRecordId: z
+      .string()
+      .trim()
+      .optional()
+      .default(''),
+
+    date: z
+      .string()
+      .regex(
+        /^\d{4}-\d{2}-\d{2}$/,
+        '날짜 형식이 올바르지 않습니다.',
+      ),
+
+    subject: z
+      .string()
+      .trim()
+      .min(
+        1,
+        '과목을 입력해 주세요.',
+      )
+      .max(
+        50,
+        '과목은 50자 이하로 입력해 주세요.',
+      ),
+
+    unit: z
+      .string()
+      .trim()
+      .max(
+        150,
+        '단원은 150자 이하로 입력해 주세요.',
+      ),
+
+    mistakeQuestion: z
+      .string()
+      .trim()
+      .min(
+        1,
+        '문제 내용을 입력해 주세요.',
+      )
+      .max(
+        5000,
+        '문제 내용은 5000자를 초과할 수 없습니다.',
+      ),
+
+    wrongAnswer: z
+      .string()
+      .trim()
+      .min(
+        1,
+        '내가 작성한 오답을 입력해 주세요.',
+      )
+      .max(
+        2000,
+        '오답은 2000자를 초과할 수 없습니다.',
+      ),
+
+    correctAnswer: z
+      .string()
+      .trim()
+      .min(
+        1,
+        '실제 정답을 입력해 주세요.',
+      )
+      .max(
+        2000,
+        '정답은 2000자를 초과할 수 없습니다.',
+      ),
+
+    mistakeReason: z
+      .string()
+      .trim()
+      .min(
+        1,
+        '틀린 이유를 입력해 주세요.',
+      )
+      .max(
+        5000,
+        '틀린 이유는 5000자를 초과할 수 없습니다.',
+      ),
+
+    concepts: z
+      .string()
+      .trim()
+      .min(
+        1,
+        '관련 개념을 입력해 주세요.',
+      )
+      .max(
+        1000,
+        '키워드와 개념은 1000자를 초과할 수 없습니다.',
+      ),
+  })
 
 function createImageUrl(
   request: Request,
@@ -80,80 +159,92 @@ wrongNotesRouter.get(
     request: Request,
     response: Response,
   ) => {
+    const userId =
+      request.authUser?.id
+
+    if (!userId) {
+      response.status(401).json({
+        success: false,
+        message:
+          '로그인이 필요합니다.',
+      })
+      return
+    }
+
     try {
-      const result = await pool.query(
-        `
-          SELECT
-            wrong_notes.id,
-            wrong_notes.study_record_id
-              AS "studyRecordId",
-            TO_CHAR(
-              wrong_notes.study_date,
-              'YYYY-MM-DD'
-            ) AS date,
-            COALESCE(
-              subjects.name,
-              '기타'
-            ) AS subject,
-            wrong_notes.unit,
-            wrong_notes.mistake_question
-              AS "mistakeQuestion",
-            wrong_notes.wrong_answer
-              AS "wrongAnswer",
-            wrong_notes.correct_answer
-              AS "correctAnswer",
-            wrong_notes.mistake_reason
-              AS "mistakeReason",
-            wrong_notes.concepts,
-            wrong_notes.wrong_image_path
-              AS "wrongImagePath",
-            wrong_notes.wrong_image_name
-              AS "wrongImageName",
-            wrong_notes.quest_status
-              AS "questStatus",
-            wrong_notes.created_at
-              AS "createdAt"
+      const result =
+        await pool.query(
+          `
+            SELECT
+              wrong_notes.id,
+              wrong_notes.study_record_id
+                AS "studyRecordId",
+              TO_CHAR(
+                wrong_notes.study_date,
+                'YYYY-MM-DD'
+              ) AS date,
+              COALESCE(
+                subjects.name,
+                '기타'
+              ) AS subject,
+              wrong_notes.unit,
+              wrong_notes.mistake_question
+                AS "mistakeQuestion",
+              wrong_notes.wrong_answer
+                AS "wrongAnswer",
+              wrong_notes.correct_answer
+                AS "correctAnswer",
+              wrong_notes.mistake_reason
+                AS "mistakeReason",
+              wrong_notes.concepts,
+              wrong_notes.wrong_image_path
+                AS "wrongImagePath",
+              wrong_notes.wrong_image_name
+                AS "wrongImageName",
+              wrong_notes.quest_status
+                AS "questStatus",
+              wrong_notes.created_at
+                AS "createdAt"
 
-          FROM wrong_notes
+            FROM wrong_notes
 
-          INNER JOIN users
-            ON users.id =
-              wrong_notes.user_id
+            LEFT JOIN subjects
+              ON subjects.id =
+                wrong_notes.subject_id
 
-          LEFT JOIN subjects
-            ON subjects.id =
-              wrong_notes.subject_id
+            WHERE
+              wrong_notes.user_id = $1
 
-          WHERE users.email = $1
+            ORDER BY
+              wrong_notes.study_date DESC,
+              wrong_notes.created_at DESC
+          `,
+          [userId],
+        )
 
-          ORDER BY
-            wrong_notes.study_date DESC,
-            wrong_notes.created_at DESC
-        `,
-        [DEVELOPMENT_USER_EMAIL],
-      )
-
-      const wrongNotes = result.rows.map(
-        (wrongNote) => {
-          const {
-            wrongImagePath,
-            wrongImageName,
-            ...remainingWrongNote
-          } = wrongNote
-
-          return {
-            ...remainingWrongNote,
-            wrongImageName:
-              normalizeUploadedFileName(
-                wrongImageName,
-              ),
-            wrongImage: createImageUrl(
-              request,
+      const wrongNotes =
+        result.rows.map(
+          (wrongNote) => {
+            const {
               wrongImagePath,
-            ),
-          }
-        },
-      )
+              wrongImageName,
+              ...remainingWrongNote
+            } = wrongNote
+
+            return {
+              ...remainingWrongNote,
+              wrongImageName:
+                normalizeUploadedFileName(
+                  wrongImageName,
+                ),
+              wrongImage:
+                createImageUrl(
+                  request,
+                  wrongImagePath,
+                ),
+            }
+          },
+        )
 
       response.status(200).json({
         success: true,
@@ -184,87 +275,99 @@ wrongNotesRouter.get(
     request: Request,
     response: Response,
   ) => {
-    const wrongNoteIdResult = z.coerce
-      .number()
-      .int()
-      .positive()
-      .safeParse(
-        request.params.wrongNoteId,
-      )
+    const userId =
+      request.authUser?.id
 
-    if (!wrongNoteIdResult.success) {
+    if (!userId) {
+      response.status(401).json({
+        success: false,
+        message:
+          '로그인이 필요합니다.',
+      })
+      return
+    }
+
+    const wrongNoteIdResult =
+      z.coerce
+        .number()
+        .int()
+        .positive()
+        .safeParse(
+          request.params.wrongNoteId,
+        )
+
+    if (
+      !wrongNoteIdResult.success
+    ) {
       response.status(400).json({
         success: false,
         message:
           '오답노트 ID가 올바르지 않습니다.',
       })
-
       return
     }
 
     try {
-      const result = await pool.query(
-        `
-          SELECT
-            wrong_notes.id,
-            wrong_notes.study_record_id
-              AS "studyRecordId",
-            TO_CHAR(
-              wrong_notes.study_date,
-              'YYYY-MM-DD'
-            ) AS date,
-            COALESCE(
-              subjects.name,
-              '기타'
-            ) AS subject,
-            wrong_notes.unit,
-            wrong_notes.mistake_question
-              AS "mistakeQuestion",
-            wrong_notes.wrong_answer
-              AS "wrongAnswer",
-            wrong_notes.correct_answer
-              AS "correctAnswer",
-            wrong_notes.mistake_reason
-              AS "mistakeReason",
-            wrong_notes.concepts,
-            wrong_notes.wrong_image_path
-              AS "wrongImagePath",
-            wrong_notes.wrong_image_name
-              AS "wrongImageName",
-            wrong_notes.quest_status
-              AS "questStatus",
-            wrong_notes.created_at
-              AS "createdAt"
+      const result =
+        await pool.query(
+          `
+            SELECT
+              wrong_notes.id,
+              wrong_notes.study_record_id
+                AS "studyRecordId",
+              TO_CHAR(
+                wrong_notes.study_date,
+                'YYYY-MM-DD'
+              ) AS date,
+              COALESCE(
+                subjects.name,
+                '기타'
+              ) AS subject,
+              wrong_notes.unit,
+              wrong_notes.mistake_question
+                AS "mistakeQuestion",
+              wrong_notes.wrong_answer
+                AS "wrongAnswer",
+              wrong_notes.correct_answer
+                AS "correctAnswer",
+              wrong_notes.mistake_reason
+                AS "mistakeReason",
+              wrong_notes.concepts,
+              wrong_notes.wrong_image_path
+                AS "wrongImagePath",
+              wrong_notes.wrong_image_name
+                AS "wrongImageName",
+              wrong_notes.quest_status
+                AS "questStatus",
+              wrong_notes.created_at
+                AS "createdAt"
 
-          FROM wrong_notes
+            FROM wrong_notes
 
-          INNER JOIN users
-            ON users.id =
-              wrong_notes.user_id
+            LEFT JOIN subjects
+              ON subjects.id =
+                wrong_notes.subject_id
 
-          LEFT JOIN subjects
-            ON subjects.id =
-              wrong_notes.subject_id
+            WHERE
+              wrong_notes.id = $1
+              AND wrong_notes.user_id = $2
 
-          WHERE
-            wrong_notes.id = $1
-            AND users.email = $2
+            LIMIT 1
+          `,
+          [
+            wrongNoteIdResult.data,
+            userId,
+          ],
+        )
 
-          LIMIT 1
-        `,
-        [
-          wrongNoteIdResult.data,
-          DEVELOPMENT_USER_EMAIL,
-        ],
-      )
-
-      if (result.rows.length === 0) {
+      if (
+        result.rows.length === 0
+      ) {
         response.status(404).json({
           success: false,
           message:
             '오답노트를 찾지 못했습니다.',
         })
-
         return
       }
 
@@ -282,10 +385,11 @@ wrongNotesRouter.get(
             normalizeUploadedFileName(
               wrongImageName,
             ),
-          wrongImage: createImageUrl(
-            request,
-            wrongImagePath,
-          ),
+          wrongImage:
+            createImageUrl(
+              request,
+              wrongImagePath,
+            ),
         },
       })
     } catch (error) {
@@ -318,6 +422,22 @@ wrongNotesRouter.post(
     request: Request,
     response: Response,
   ) => {
+    const userId =
+      request.authUser?.id
+
+    if (!userId) {
+      await removeUploadedFile(
+        request.file?.path,
+      )
+
+      response.status(401).json({
+        success: false,
+        message:
+          '로그인이 필요합니다.',
+      })
+      return
+    }
+
     const validationResult =
       createWrongNoteSchema.safeParse(
         request.body,
@@ -333,10 +453,10 @@ wrongNotesRouter.post(
         message:
           '입력한 오답노트 내용을 확인해 주세요.',
         errors:
-          validationResult.error.flatten()
+          validationResult.error
+            .flatten()
             .fieldErrors,
       })
-
       return
     }
 
@@ -346,7 +466,6 @@ wrongNotesRouter.post(
         message:
           '오답 문제 이미지를 등록해 주세요.',
       })
-
       return
     }
 
@@ -367,7 +486,6 @@ wrongNotesRouter.post(
           message:
             '이미지 파일의 실제 형식을 확인해 주세요.',
         })
-
         return
       }
     } catch (error) {
@@ -385,7 +503,6 @@ wrongNotesRouter.post(
         message:
           '업로드한 이미지를 확인하지 못했습니다.',
       })
-
       return
     }
 
@@ -424,7 +541,6 @@ wrongNotesRouter.post(
           message:
             '연결할 학습 기록 ID가 올바르지 않습니다.',
         })
-
         return
       }
 
@@ -432,33 +548,15 @@ wrongNotesRouter.post(
         parsedStudyRecordId
     }
 
-    const client = await pool.connect()
+    const client =
+      await pool.connect()
 
     try {
       await client.query('BEGIN')
 
-      const userResult =
-        await client.query(
-          `
-            SELECT id
-            FROM users
-            WHERE email = $1
-            LIMIT 1
-          `,
-          [DEVELOPMENT_USER_EMAIL],
-        )
-
-      if (userResult.rows.length === 0) {
-        throw new Error(
-          '개발용 사용자를 찾지 못했습니다.',
-        )
-      }
-
-      const userId =
-        userResult.rows[0].id
-
       if (
-        normalizedStudyRecordId !== null
+        normalizedStudyRecordId !==
+        null
       ) {
         const linkedRecordResult =
           await client.query(
@@ -477,12 +575,23 @@ wrongNotesRouter.post(
           )
 
         if (
-          linkedRecordResult.rows.length ===
-          0
+          linkedRecordResult.rows
+            .length === 0
         ) {
-          throw new Error(
-            '연결할 학습 기록을 찾지 못했습니다.',
+          await client.query(
+            'ROLLBACK',
           )
+
+          await removeUploadedFile(
+            request.file.path,
+          )
+
+          response.status(404).json({
+            success: false,
+            message:
+              '연결할 학습 기록을 찾지 못했습니다.',
+          })
+          return
         }
       }
 
@@ -508,7 +617,13 @@ wrongNotesRouter.post(
         )
 
       const subjectId =
-        subjectResult.rows[0].id
+        subjectResult.rows[0]?.id
+
+      if (!subjectId) {
+        throw new Error(
+          '과목 저장 결과가 없습니다.',
+        )
+      }
 
       const savedImagePath =
         `/uploads/wrong-notes/${request.file.filename}`
@@ -578,6 +693,15 @@ wrongNotesRouter.post(
           ],
         )
 
+      const savedWrongNote =
+        wrongNoteResult.rows[0]
+
+      if (!savedWrongNote) {
+        throw new Error(
+          '오답노트 저장 결과가 없습니다.',
+        )
+      }
+
       await client.query('COMMIT')
 
       response.status(201).json({
@@ -585,16 +709,19 @@ wrongNotesRouter.post(
         message:
           '오답노트가 저장되었습니다.',
         data: {
-          ...wrongNoteResult.rows[0],
+          ...savedWrongNote,
           subject,
-          wrongImage: createImageUrl(
-            request,
-            savedImagePath,
-          ),
+          wrongImage:
+            createImageUrl(
+              request,
+              savedImagePath,
+            ),
         },
       })
     } catch (error) {
-      await client.query('ROLLBACK')
+      await client.query(
+        'ROLLBACK',
+      )
 
       await removeUploadedFile(
         request.file.path,
@@ -626,25 +753,40 @@ wrongNotesRouter.delete(
     request: Request,
     response: Response,
   ) => {
-    const wrongNoteIdResult = z.coerce
-      .number()
-      .int()
-      .positive()
-      .safeParse(
-        request.params.wrongNoteId,
-      )
+    const userId =
+      request.authUser?.id
 
-    if (!wrongNoteIdResult.success) {
+    if (!userId) {
+      response.status(401).json({
+        success: false,
+        message:
+          '로그인이 필요합니다.',
+      })
+      return
+    }
+
+    const wrongNoteIdResult =
+      z.coerce
+        .number()
+        .int()
+        .positive()
+        .safeParse(
+          request.params.wrongNoteId,
+        )
+
+    if (
+      !wrongNoteIdResult.success
+    ) {
       response.status(400).json({
         success: false,
         message:
           '오답노트 ID가 올바르지 않습니다.',
       })
-
       return
     }
 
-    const client = await pool.connect()
+    const client =
+      await pool.connect()
 
     try {
       await client.query('BEGIN')
@@ -652,67 +794,67 @@ wrongNotesRouter.delete(
       await client.query(
         `
           DELETE FROM review_quest_sets
-          USING users
-
           WHERE
-            review_quest_sets.user_id =
-              users.id
-            AND users.email = $1
-            AND review_quest_sets.source_type =
+            user_id = $1
+            AND source_type =
               'wrong-note'
-            AND review_quest_sets.source_id = $2
+            AND source_id = $2
         `,
         [
-          DEVELOPMENT_USER_EMAIL,
+          userId,
           wrongNoteIdResult.data,
         ],
       )
 
-      const result = await client.query(
-        `
-          DELETE FROM wrong_notes
-          USING users
+      const result =
+        await client.query(
+          `
+            DELETE FROM wrong_notes
+            WHERE
+              id = $1
+              AND user_id = $2
 
-          WHERE
-            wrong_notes.id = $1
-            AND wrong_notes.user_id =
-              users.id
-            AND users.email = $2
+            RETURNING
+              id,
+              wrong_image_path
+                AS "wrongImagePath"
+          `,
+          [
+            wrongNoteIdResult.data,
+            userId,
+          ],
+        )
 
-          RETURNING
-            wrong_notes.id,
-            wrong_notes.wrong_image_path
-              AS "wrongImagePath"
-        `,
-        [
-          wrongNoteIdResult.data,
-          DEVELOPMENT_USER_EMAIL,
-        ],
-      )
-
-      if (result.rows.length === 0) {
-        await client.query('ROLLBACK')
+      if (
+        result.rows.length === 0
+      ) {
+        await client.query(
+          'ROLLBACK',
+        )
 
         response.status(404).json({
           success: false,
           message:
             '삭제할 오답노트를 찾지 못했습니다.',
         })
-
         return
       }
 
       await client.query('COMMIT')
 
       const imagePath =
-        result.rows[0].wrongImagePath
+        result.rows[0]
+          .wrongImagePath
 
       if (imagePath) {
-        const imageFilePath = path.resolve(
-          __dirname,
-          '../../uploads/wrong-notes',
-          path.basename(imagePath),
-        )
+        const imageFilePath =
+          path.resolve(
+            __dirname,
+            '../../uploads/wrong-notes',
+            path.basename(
+              imagePath,
+            ),
+          )
 
         await removeUploadedFile(
           imageFilePath,
@@ -728,7 +870,9 @@ wrongNotesRouter.delete(
         },
       })
     } catch (error) {
-      await client.query('ROLLBACK')
+      await client.query(
+        'ROLLBACK',
+      )
 
       console.error(
         '오답노트 삭제 실패:',

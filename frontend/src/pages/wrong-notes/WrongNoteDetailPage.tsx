@@ -4,6 +4,7 @@ import {
 } from 'react'
 import {
   Link,
+  useLocation,
   useNavigate,
   useParams,
 } from 'react-router'
@@ -22,10 +23,8 @@ import {
 } from 'lucide-react'
 
 import './WrongNoteDetailPage.css'
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:4000/api'
+import { apiFetch } from '../../lib/api'
+import { createAiWrongQuestionSet } from '../../lib/aiWrongQuestion'
 
 type WrongNoteStatus =
   | 'not-generated'
@@ -114,8 +113,8 @@ const statusLabels: Record<
   WrongNoteStatus,
   string
 > = {
-  'not-generated': '문제 생성 전',
-  ready: '복습 대기',
+  'not-generated': 'AI 문제 생성 전',
+  ready: '문제 풀이 대기',
   'retry-required': '재도전 필요',
   completed: '마스터',
 }
@@ -138,8 +137,8 @@ async function loadWrongNoteFromApi(
   wrongNoteId: string,
   signal?: AbortSignal,
 ): Promise<SavedWrongNote> {
-  const response = await fetch(
-    `${API_BASE_URL}/wrong-notes/${wrongNoteId}`,
+  const response = await apiFetch(
+    `/wrong-notes/${wrongNoteId}`,
     {
       signal,
     },
@@ -197,8 +196,8 @@ async function loadStudyRecordFromApi(
   studyRecordId: number,
   signal?: AbortSignal,
 ): Promise<SavedStudyRecord> {
-  const response = await fetch(
-    `${API_BASE_URL}/study-records/${studyRecordId}`,
+  const response = await apiFetch(
+    `/study-records/${studyRecordId}`,
     {
       signal,
     },
@@ -254,6 +253,7 @@ function formatDate(date: string) {
 function WrongNoteDetailPage() {
   const { wrongNoteId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [wrongNote, setWrongNote] =
     useState<SavedWrongNote | null>(null)
@@ -273,6 +273,22 @@ function WrongNoteDetailPage() {
 
   const [isDeleting, setIsDeleting] =
     useState(false)
+
+  const [isCreatingQuest, setIsCreatingQuest] =
+    useState(false)
+
+  const [questError, setQuestError] =
+    useState(() => {
+      const navigationState =
+        location.state as {
+          aiGenerationError?: string
+        } | null
+
+      return (
+        navigationState?.aiGenerationError ??
+        ''
+      )
+    })
 
   const [isImageOpen, setIsImageOpen] =
     useState(false)
@@ -427,8 +443,8 @@ function WrongNoteDetailPage() {
     try {
       setIsDeleting(true)
 
-      const response = await fetch(
-        `${API_BASE_URL}/wrong-notes/${wrongNote.id}`,
+      const response = await apiFetch(
+        `/wrong-notes/${wrongNote.id}`,
         {
           method: 'DELETE',
         },
@@ -461,6 +477,38 @@ function WrongNoteDetailPage() {
       )
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  const handleCreateAiWrongQuestion = async () => {
+    if (!wrongNote || isCreatingQuest) {
+      return
+    }
+
+    try {
+      setIsCreatingQuest(true)
+      setQuestError('')
+
+      await createAiWrongQuestionSet(
+        wrongNote.id,
+      )
+
+      navigate(
+        `/quiz/wrong-note/${wrongNote.id}`,
+      )
+    } catch (error) {
+      console.error(
+        'AI 오답 문제 생성 실패:',
+        error,
+      )
+
+      setQuestError(
+        error instanceof Error
+          ? error.message
+          : 'AI 오답 문제를 만들지 못했습니다.',
+      )
+    } finally {
+      setIsCreatingQuest(false)
     }
   }
 
@@ -512,19 +560,14 @@ function WrongNoteDetailPage() {
   const status =
     wrongNote.questStatus
 
-  const questButtonTarget =
-    status === 'not-generated'
-      ? `/quest-review/wrong-note/${wrongNote.id}`
-      : `/quiz/wrong-note/${wrongNote.id}`
-
   const questButtonLabel =
     status === 'not-generated'
-      ? 'AI 복습 문제 생성하기'
+      ? 'AI 오답 문제 생성'
       : status === 'ready'
-        ? '복습 퀴즈 시작하기'
+        ? 'AI 오답 문제 풀기'
         : status === 'retry-required'
           ? '다시 도전하기'
-          : '복습 퀴즈 다시 풀기'
+          : 'AI 오답 문제 다시 풀기'
 
   return (
     <main className="wrong-note-detail-page">
@@ -604,7 +647,7 @@ function WrongNoteDetailPage() {
             <FileQuestion size={20} />
 
             <span>
-              복습 상태
+              AI 오답 문제 상태
 
               <strong>
                 {statusLabels[status]}
@@ -791,24 +834,56 @@ function WrongNoteDetailPage() {
           </Link>
 
           {status !== 'not-generated' && (
-            <Link
+            <button
+              type="button"
               className="wrong-note-detail-list-button"
-              to={`/quest-review/wrong-note/${wrongNote.id}`}
+              onClick={() =>
+                void handleCreateAiWrongQuestion()
+              }
+              disabled={isCreatingQuest}
             >
               <Sparkles size={18} />
-              AI 문제 다시 만들기
-            </Link>
+              {isCreatingQuest
+                ? '새 문제 생성 중...'
+                : 'AI 오답 문제 다시 만들기'}
+            </button>
           )}
 
-          <Link
-            className="wrong-note-detail-quest-button"
-            to={questButtonTarget}
-          >
-            <Sparkles size={18} />
-            {questButtonLabel}
-            <ArrowRight size={17} />
-          </Link>
+          {status === 'not-generated' ? (
+            <button
+              type="button"
+              className="wrong-note-detail-quest-button"
+              onClick={() =>
+                void handleCreateAiWrongQuestion()
+              }
+              disabled={isCreatingQuest}
+            >
+              <Sparkles size={18} />
+              {isCreatingQuest
+                ? 'AI 오답 문제 생성 중...'
+                : questButtonLabel}
+              <ArrowRight size={17} />
+            </button>
+          ) : (
+            <Link
+              className="wrong-note-detail-quest-button"
+              to={`/quiz/wrong-note/${wrongNote.id}`}
+            >
+              <Sparkles size={18} />
+              {questButtonLabel}
+              <ArrowRight size={17} />
+            </Link>
+          )}
         </div>
+
+        {questError && (
+          <p
+            className="wrong-note-detail-quest-error"
+            role="alert"
+          >
+            {questError}
+          </p>
+        )}
       </div>
 
       {isImageOpen &&

@@ -1,5 +1,6 @@
 import path from 'node:path'
 
+import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import express, {
@@ -12,6 +13,7 @@ import multer from 'multer'
 
 import { CORS_ORIGIN } from './config/app'
 import { pool } from './config/db'
+import authRouter from './routes/auth'
 import reviewQuestDraftsRouter from './routes/reviewQuestDrafts'
 import reviewQuestsRouter from './routes/reviewQuests'
 import statisticsRouter from './routes/statistics'
@@ -38,10 +40,12 @@ const PORT =
 app.use(
   cors({
     origin: CORS_ORIGIN,
+    credentials: true,
   }),
 )
 
 app.use(express.json({ limit: '1mb' }))
+app.use(cookieParser())
 
 app.use(
   '/uploads',
@@ -51,6 +55,11 @@ app.use(
       '../uploads',
     ),
   ),
+)
+
+app.use(
+  '/api/auth',
+  authRouter,
 )
 
 app.use(

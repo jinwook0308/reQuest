@@ -1,9 +1,59 @@
 .subject-bookshelf {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns:
+    repeat(
+      auto-fill,
+      minmax(210px, 1fr)
+    );
+  align-content: start;
   gap: 64px 42px;
+
   width: 100%;
-  padding: 54px 16px 26px;
+  height: 780px;
+  padding: 54px 16px 32px;
+
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.subject-bookshelf::-webkit-scrollbar {
+  width: 8px;
+}
+
+.subject-bookshelf::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(
+    223,
+    221,
+    216,
+    0.38
+  );
+}
+
+.subject-bookshelf::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background:
+    rgba(
+      137,
+      130,
+      120,
+      0.48
+    );
+  background-clip: padding-box;
+}
+
+.subject-bookshelf::-webkit-scrollbar-thumb:hover {
+  background:
+    rgba(
+      158,
+      128,
+      86,
+      0.7
+    );
+  background-clip: padding-box;
 }
 
 .subject-book {
@@ -67,14 +117,19 @@
       var(--book-dark) 11px,
       transparent 12px
     ),
-    linear-gradient(135deg, var(--book-light), var(--book-cover));
+    linear-gradient(
+      135deg,
+      var(--book-light),
+      var(--book-cover)
+    );
   box-shadow:
     inset -8px 0 0 rgba(255, 255, 255, 0.28),
     inset 13px 0 16px rgba(95, 72, 45, 0.12);
   transform-origin: left center;
   transform-style: preserve-3d;
   transition:
-    transform 0.55s cubic-bezier(0.22, 0.78, 0.25, 1),
+    transform 0.55s
+      cubic-bezier(0.22, 0.78, 0.25, 1),
     box-shadow 0.35s ease;
   backface-visibility: hidden;
   z-index: 2;
@@ -86,8 +141,15 @@
   bottom: 0;
   left: 16px;
   width: 3px;
-  background: rgba(255, 255, 255, 0.3);
-  box-shadow: 4px 0 9px rgba(80, 59, 37, 0.15);
+  background: rgba(
+    255,
+    255,
+    255,
+    0.3
+  );
+  box-shadow:
+    4px 0 9px
+      rgba(80, 59, 37, 0.15);
 }
 
 .subject-book__band {
@@ -96,10 +158,17 @@
   right: 24px;
   width: 10px;
   height: 100%;
-  background: rgba(255, 255, 255, 0.34);
+  background: rgba(
+    255,
+    255,
+    255,
+    0.34
+  );
   box-shadow:
-    -2px 0 2px rgba(90, 67, 40, 0.08),
-    2px 0 2px rgba(255, 255, 255, 0.24);
+    -2px 0 2px
+      rgba(90, 67, 40, 0.08),
+    2px 0 2px
+      rgba(255, 255, 255, 0.24);
 }
 
 .subject-book__label {
@@ -109,10 +178,18 @@
   left: 36px;
   min-height: 115px;
   padding: 18px;
-  border: 1px solid rgba(105, 84, 55, 0.13);
+  border: 1px solid
+    rgba(105, 84, 55, 0.13);
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 7px 18px rgba(80, 59, 35, 0.08);
+  background: rgba(
+    255,
+    255,
+    255,
+    0.82
+  );
+  box-shadow:
+    0 7px 18px
+      rgba(80, 59, 35, 0.08);
 }
 
 .subject-book__label small {
@@ -132,7 +209,10 @@
   overflow: hidden;
   margin-bottom: 10px;
   color: #29241e;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family:
+    Georgia,
+    'Times New Roman',
+    serif;
   font-size: 25px;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -156,10 +236,16 @@
   overflow: hidden;
   max-width: 120px;
   padding: 6px 9px;
-  border: 1px solid rgba(158, 128, 86, 0.25);
+  border: 1px solid
+    rgba(158, 128, 86, 0.25);
   border-radius: 999px;
   color: #9e8056;
-  background: rgba(255, 255, 255, 0.76);
+  background: rgba(
+    255,
+    255,
+    255,
+    0.76
+  );
   font-size: 10px;
   font-weight: 800;
   line-height: 1;
@@ -173,7 +259,8 @@
   bottom: 28px;
   left: 35px;
   padding-top: 13px;
-  border-top: 1px solid rgba(79, 63, 43, 0.18);
+  border-top: 1px solid
+    rgba(79, 63, 43, 0.18);
   color: #6e5b42;
   font-size: 12px;
   font-weight: 700;
@@ -204,29 +291,43 @@
   line-height: 1.35;
 }
 
-.subject-book:hover .subject-book__cover,
-.subject-book:focus-visible .subject-book__cover {
-  transform: translateY(-12px) rotateY(-7deg) rotateZ(-1deg);
+.subject-book:hover
+  .subject-book__cover,
+.subject-book:focus-visible
+  .subject-book__cover {
+  transform:
+    translateY(-12px)
+    rotateY(-7deg)
+    rotateZ(-1deg);
   box-shadow:
-    17px 26px 36px rgba(51, 43, 31, 0.2),
-    inset -8px 0 0 rgba(255, 255, 255, 0.28);
+    17px 26px 36px
+      rgba(51, 43, 31, 0.2),
+    inset -8px 0 0
+      rgba(255, 255, 255, 0.28);
 }
 
-.subject-book:hover .subject-book__pages,
-.subject-book:focus-visible .subject-book__pages {
+.subject-book:hover
+  .subject-book__pages,
+.subject-book:focus-visible
+  .subject-book__pages {
   transform: translateY(-7px);
-  box-shadow: 22px 31px 42px rgba(45, 38, 27, 0.2);
+  box-shadow:
+    22px 31px 42px
+      rgba(45, 38, 27, 0.2);
 }
 
-.subject-book:hover .subject-book__hover,
-.subject-book:focus-visible .subject-book__hover {
+.subject-book:hover
+  .subject-book__hover,
+.subject-book:focus-visible
+  .subject-book__hover {
   opacity: 1;
   transform: translateY(0);
 }
 
 .subject-book:focus-visible {
   border-radius: 12px;
-  outline: 3px solid rgba(185, 133, 49, 0.42);
+  outline: 3px solid
+    rgba(185, 133, 49, 0.42);
   outline-offset: 12px;
 }
 
@@ -241,12 +342,16 @@
   content: '';
 }
 
-.subject-book.is-opening .subject-book__cover {
+.subject-book.is-opening
+  .subject-book__cover {
   transform: rotateY(-158deg);
-  box-shadow: 24px 22px 34px rgba(45, 38, 27, 0.16);
+  box-shadow:
+    24px 22px 34px
+      rgba(45, 38, 27, 0.16);
 }
 
-.subject-book.is-opening .subject-book__pages {
+.subject-book.is-opening
+  .subject-book__pages {
   transform: translateX(5px);
 }
 
@@ -295,14 +400,24 @@
   border: 1px dashed #d8d1c6;
   border-radius: 18px;
   color: #81776b;
-  background: rgba(255, 253, 248, 0.72);
+  background: rgba(
+    255,
+    253,
+    248,
+    0.72
+  );
   text-align: center;
 }
 
 @media (max-width: 760px) {
   .subject-bookshelf {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
     gap: 48px 22px;
+    height: 690px;
     padding-inline: 0;
   }
 
@@ -324,6 +439,7 @@
 @media (max-width: 480px) {
   .subject-bookshelf {
     grid-template-columns: 1fr;
+    height: 640px;
   }
 
   .subject-book {
@@ -332,7 +448,9 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media (
+  prefers-reduced-motion: reduce
+) {
   .subject-book__cover,
   .subject-book__pages,
   .subject-book__hover {

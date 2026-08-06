@@ -8,6 +8,7 @@ import {
 import {
   Link,
   useLocation,
+  useNavigate,
   useSearchParams,
 } from 'react-router'
 
@@ -18,15 +19,28 @@ import {
   ImagePlus,
   Link2,
   Save,
+  Sparkles,
   Trash2,
   Upload,
 } from 'lucide-react'
 
 import './WrongNoteFormPage.css'
+import { apiFetch } from '../../lib/api'
+import { createAiWrongQuestionSet } from '../../lib/aiWrongQuestion'
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:4000/api'
+type Subject = {
+  id: string
+  name: string
+}
+
+type SubjectsApiResponse = {
+  success: boolean
+  message?: string
+  data?: Array<{
+    id: string | number
+    name: string
+  }>
+}
 
 type StudyRecordApiItem = {
   id: number | string
@@ -100,9 +114,7 @@ function getToday() {
 async function loadStudyRecordsFromApi(): Promise<
   SavedStudyRecord[]
 > {
-  const response = await fetch(
-    `${API_BASE_URL}/study-records`,
-  )
+  const response = await apiFetch('/study-records')
 
   const result =
     (await response.json()) as StudyRecordsApiResponse
@@ -132,6 +144,26 @@ async function loadStudyRecordsFromApi(): Promise<
   }))
 }
 
+async function loadSubjectsFromApi(): Promise<
+  Subject[]
+> {
+  const response = await apiFetch('/subjects')
+  const result =
+    (await response.json()) as SubjectsApiResponse
+
+  if (!response.ok || !result.success) {
+    throw new Error(
+      result.message ??
+        '과목을 불러오지 못했습니다.',
+    )
+  }
+
+  return (result.data ?? []).map((subject) => ({
+    id: String(subject.id),
+    name: subject.name,
+  }))
+}
+
 function createInitialForm(
   studyRecords: SavedStudyRecord[],
   requestedRecordId: string | null,
@@ -158,7 +190,7 @@ function createInitialForm(
   return {
     studyRecordId: '',
     date: getToday(),
-    subject: '수학',
+    subject: '',
     unit: '',
     mistakeQuestion: '',
     wrongAnswer: '',
@@ -231,6 +263,7 @@ function convertDataUrlToFile(
 }
 
 function WrongNoteFormPage() {
+  const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
 
@@ -242,6 +275,12 @@ function WrongNoteFormPage() {
 
   const [studyRecords, setStudyRecords] =
     useState<SavedStudyRecord[]>([])
+
+  const [subjects, setSubjects] = useState<
+    Subject[]
+  >([])
+  const [isLoadingSubjects, setIsLoadingSubjects] =
+    useState(true)
 
   const [form, setForm] =
     useState<WrongNoteForm>(() =>
@@ -292,7 +331,11 @@ function WrongNoteFormPage() {
 
   const [saveStatus, setSaveStatus] =
     useState<
-      'idle' | 'saving' | 'saved' | 'error'
+      | 'idle'
+      | 'saving'
+      | 'generating'
+      | 'saved'
+      | 'error'
     >('idle')
 
   useEffect(() => {
@@ -302,14 +345,19 @@ function WrongNoteFormPage() {
       try {
         setRecordLoadError('')
 
-        const records =
-          await loadStudyRecordsFromApi()
+        const [records, loadedSubjects] =
+          await Promise.all([
+            loadStudyRecordsFromApi(),
+            loadSubjectsFromApi(),
+          ])
 
         if (cancelled) {
           return
         }
 
         setStudyRecords(records)
+        setSubjects(loadedSubjects)
+        setIsLoadingSubjects(false)
 
         if (requestedStudyRecordId) {
           const linkedRecord = records.find(
@@ -325,8 +373,21 @@ function WrongNoteFormPage() {
                 requestedStudyRecordId,
               ),
             )
+
+            return
           }
         }
+
+        setForm((previousForm) => ({
+          ...previousForm,
+          subject:
+            loadedSubjects.some(
+              (subject) =>
+                subject.name === previousForm.subject,
+            )
+              ? previousForm.subject
+              : (loadedSubjects[0]?.name ?? ''),
+        }))
       } catch (error) {
         if (cancelled) {
           return
@@ -342,6 +403,7 @@ function WrongNoteFormPage() {
             ? error.message
             : '학습 기록을 불러오지 못했습니다.',
         )
+        setIsLoadingSubjects(false)
       }
     }
 
@@ -575,8 +637,8 @@ function WrongNoteFormPage() {
     )
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/wrong-notes`,
+      const response = await apiFetch(
+        '/wrong-notes',
         {
           method: 'POST',
           body: requestBody,
@@ -588,7 +650,8 @@ function WrongNoteFormPage() {
 
       if (
         !response.ok ||
-        !result.success
+        !result.success ||
+        !result.data?.id
       ) {
         throw new Error(
           result.message ??
@@ -596,12 +659,44 @@ function WrongNoteFormPage() {
         )
       }
 
-      setSaveStatus('saved')
+      const savedWrongNoteId =
+        result.data.id
 
+      setSaveStatus('generating')
       setSaveMessage(
-        result.message ??
-          '오답노트가 저장되었습니다.',
+        '오답노트를 저장했습니다. AI 오답 문제를 만들고 있어요.',
       )
+
+      try {
+        await createAiWrongQuestionSet(
+          savedWrongNoteId,
+        )
+
+        navigate(
+          `/quiz/wrong-note/${savedWrongNoteId}`,
+          {
+            replace: true,
+          },
+        )
+      } catch (generationError) {
+        console.error(
+          'AI 오답 문제 생성 실패:',
+          generationError,
+        )
+
+        navigate(
+          `/wrong-notes/${savedWrongNoteId}`,
+          {
+            replace: true,
+            state: {
+              aiGenerationError:
+                generationError instanceof Error
+                  ? generationError.message
+                  : 'AI 오답 문제를 만들지 못했습니다.',
+            },
+          },
+        )
+      }
     } catch (error) {
       console.error(
         '오답노트 저장 실패:',
@@ -648,7 +743,7 @@ function WrongNoteFormPage() {
               틀린 답과 이유를 기록하면
               취약한 개념을 찾고,
               <br />
-              나에게 필요한 복습 문제를
+              나에게 필요한 AI 오답 문제를
               만들 수 있어요.
             </p>
           </div>
@@ -734,34 +829,30 @@ function WrongNoteFormPage() {
                   name="subject"
                   value={form.subject}
                   onChange={handleChange}
+                  disabled={
+                    isLoadingSubjects ||
+                    subjects.length === 0
+                  }
+                  required
                 >
-                  <option value="수학">
-                    수학
-                  </option>
-
-                  <option value="국어">
-                    국어
-                  </option>
-
-                  <option value="영어">
-                    영어
-                  </option>
-
-                  <option value="과학">
-                    과학
-                  </option>
-
-                  <option value="사회">
-                    사회
-                  </option>
-
-                  <option value="프로그래밍">
-                    프로그래밍
-                  </option>
-
-                  <option value="기타">
-                    기타
-                  </option>
+                  {isLoadingSubjects ? (
+                    <option value="">
+                      과목을 불러오는 중입니다
+                    </option>
+                  ) : subjects.length === 0 ? (
+                    <option value="">
+                      먼저 과목을 추가해 주세요
+                    </option>
+                  ) : (
+                    subjects.map((subject) => (
+                      <option
+                        value={subject.name}
+                        key={subject.id}
+                      >
+                        {subject.name}
+                      </option>
+                    ))
+                  )}
                 </select>
               </label>
 
@@ -986,6 +1077,7 @@ function WrongNoteFormPage() {
               type="submit"
               disabled={
                 saveStatus === 'saving' ||
+                saveStatus === 'generating' ||
                 saveStatus === 'saved'
               }
             >
@@ -998,6 +1090,12 @@ function WrongNoteFormPage() {
                   저장 완료
                 </>
               ) : saveStatus ===
+                'generating' ? (
+                <>
+                  <Sparkles size={18} />
+                  AI 오답 문제 생성 중...
+                </>
+              ) : saveStatus ===
                 'saving' ? (
                 <>
                   <Save size={18} />
@@ -1006,7 +1104,7 @@ function WrongNoteFormPage() {
               ) : (
                 <>
                   <Save size={18} />
-                  오답 노트 저장하기
+                  오답 저장 후 AI 오답 문제 풀기
                 </>
               )}
             </button>

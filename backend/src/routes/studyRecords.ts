@@ -6,13 +6,17 @@ import {
 import { z } from 'zod'
 
 import { pool } from '../config/db'
-import { APP_USER_EMAIL } from '../config/app'
-import { normalizeUploadedFileName } from '../config/upload'
+import {
+  normalizeUploadedFileName,
+} from '../config/upload'
+import {
+  requireAuth,
+} from '../middleware/requireAuth'
 
-const studyRecordsRouter = Router()
+const studyRecordsRouter =
+  Router()
 
-const DEVELOPMENT_USER_EMAIL =
-  APP_USER_EMAIL
+studyRecordsRouter.use(requireAuth)
 
 function createImageUrl(
   request: Request,
@@ -25,25 +29,83 @@ function createImageUrl(
   return `${request.protocol}://${request.get('host')}${imagePath}`
 }
 
-const createStudyRecordSchema = z.object({
-  date: z
-    .string()
-    .regex(
-      /^\d{4}-\d{2}-\d{2}$/,
-      '날짜 형식이 올바르지 않습니다.',
-    ),
-  subject: z.string().trim().min(1).max(50),
-  unit: z.string().trim().min(1).max(150),
-  minutes: z.coerce.number().int().min(0),
-  learned: z.string().trim().min(1).max(5000, '학습 내용은 5000자를 초과할 수 없습니다.'),
-  difficult: z.string().trim().max(5000, '어려운 내용은 5000자를 초과할 수 없습니다.').default(''),
-  keywords: z.string().trim().max(1000, '키워드와 개념은 1000자를 초과할 수 없습니다.').default(''),
-  understanding: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(5),
-})
+const createStudyRecordSchema =
+  z.object({
+    date: z
+      .string()
+      .regex(
+        /^\d{4}-\d{2}-\d{2}$/,
+        '날짜 형식이 올바르지 않습니다.',
+      ),
+
+    subject: z
+      .string()
+      .trim()
+      .min(
+        1,
+        '과목을 입력해 주세요.',
+      )
+      .max(
+        50,
+        '과목은 50자 이하로 입력해 주세요.',
+      ),
+
+    unit: z
+      .string()
+      .trim()
+      .min(
+        1,
+        '학습 단원을 입력해 주세요.',
+      )
+      .max(
+        150,
+        '학습 단원은 150자 이하로 입력해 주세요.',
+      ),
+
+    minutes: z.coerce
+      .number()
+      .int()
+      .min(
+        0,
+        '학습 시간은 0분 이상이어야 합니다.',
+      ),
+
+    learned: z
+      .string()
+      .trim()
+      .min(
+        1,
+        '학습한 내용을 입력해 주세요.',
+      )
+      .max(
+        5000,
+        '학습 내용은 5000자를 초과할 수 없습니다.',
+      ),
+
+    difficult: z
+      .string()
+      .trim()
+      .max(
+        5000,
+        '어려운 내용은 5000자를 초과할 수 없습니다.',
+      )
+      .default(''),
+
+    keywords: z
+      .string()
+      .trim()
+      .max(
+        1000,
+        '키워드와 개념은 1000자를 초과할 수 없습니다.',
+      )
+      .default(''),
+
+    understanding: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(5),
+  })
 
 /**
  * 학습 기록 목록 조회
@@ -52,51 +114,61 @@ const createStudyRecordSchema = z.object({
 studyRecordsRouter.get(
   '/',
   async (
-    _request: Request,
+    request: Request,
     response: Response,
   ) => {
+    const userId =
+      request.authUser?.id
+
+    if (!userId) {
+      response.status(401).json({
+        success: false,
+        message:
+          '로그인이 필요합니다.',
+      })
+      return
+    }
+
     try {
-      const result = await pool.query(
-        `
-          SELECT
-            study_records.id,
-            TO_CHAR(
-              study_records.study_date,
-              'YYYY-MM-DD'
-            ) AS date,
-            COALESCE(
-              subjects.name,
-              '기타'
-            ) AS subject,
-            study_records.unit,
-            study_records.minutes,
-            study_records.learned,
-            study_records.difficult,
-            study_records.keywords,
-            study_records.understanding,
-            study_records.quest_status
-              AS "questStatus",
-            study_records.created_at
-              AS "createdAt"
+      const result =
+        await pool.query(
+          `
+            SELECT
+              study_records.id,
+              TO_CHAR(
+                study_records.study_date,
+                'YYYY-MM-DD'
+              ) AS date,
+              COALESCE(
+                subjects.name,
+                '기타'
+              ) AS subject,
+              study_records.unit,
+              study_records.minutes,
+              study_records.learned,
+              study_records.difficult,
+              study_records.keywords,
+              study_records.understanding,
+              study_records.quest_status
+                AS "questStatus",
+              study_records.created_at
+                AS "createdAt"
 
-          FROM study_records
+            FROM study_records
 
-          INNER JOIN users
-            ON users.id =
-              study_records.user_id
+            LEFT JOIN subjects
+              ON subjects.id =
+                study_records.subject_id
 
-          LEFT JOIN subjects
-            ON subjects.id =
-              study_records.subject_id
+            WHERE
+              study_records.user_id = $1
 
-          WHERE users.email = $1
-
-          ORDER BY
-            study_records.study_date DESC,
-            study_records.created_at DESC
-        `,
-        [DEVELOPMENT_USER_EMAIL],
-      )
+            ORDER BY
+              study_records.study_date DESC,
+              study_records.created_at DESC
+          `,
+          [userId],
+        )
 
       response.status(200).json({
         success: true,
@@ -127,6 +199,18 @@ studyRecordsRouter.post(
     request: Request,
     response: Response,
   ) => {
+    const userId =
+      request.authUser?.id
+
+    if (!userId) {
+      response.status(401).json({
+        success: false,
+        message:
+          '로그인이 필요합니다.',
+      })
+      return
+    }
+
     const validationResult =
       createStudyRecordSchema.safeParse(
         request.body,
@@ -138,10 +222,10 @@ studyRecordsRouter.post(
         message:
           '입력한 학습 기록을 확인해 주세요.',
         errors:
-          validationResult.error.flatten()
+          validationResult.error
+            .flatten()
             .fieldErrors,
       })
-
       return
     }
 
@@ -156,29 +240,11 @@ studyRecordsRouter.post(
       understanding,
     } = validationResult.data
 
-    const client = await pool.connect()
+    const client =
+      await pool.connect()
 
     try {
       await client.query('BEGIN')
-
-      const userResult =
-        await client.query(
-          `
-            SELECT id
-            FROM users
-            WHERE email = $1
-            LIMIT 1
-          `,
-          [DEVELOPMENT_USER_EMAIL],
-        )
-
-      if (userResult.rows.length === 0) {
-        throw new Error(
-          '개발용 사용자를 찾지 못했습니다.',
-        )
-      }
-
-      const userId = userResult.rows[0].id
 
       const subjectResult =
         await client.query(
@@ -202,7 +268,13 @@ studyRecordsRouter.post(
         )
 
       const subjectId =
-        subjectResult.rows[0].id
+        subjectResult.rows[0]?.id
+
+      if (!subjectId) {
+        throw new Error(
+          '과목 저장 결과가 없습니다.',
+        )
+      }
 
       const recordResult =
         await client.query(
@@ -234,7 +306,10 @@ studyRecordsRouter.post(
               difficult,
               keywords,
               understanding,
-              created_at AS "createdAt"
+              quest_status
+                AS "questStatus",
+              created_at
+                AS "createdAt"
           `,
           [
             userId,
@@ -249,6 +324,15 @@ studyRecordsRouter.post(
           ],
         )
 
+      const savedRecord =
+        recordResult.rows[0]
+
+      if (!savedRecord) {
+        throw new Error(
+          '학습 기록 저장 결과가 없습니다.',
+        )
+      }
+
       await client.query('COMMIT')
 
       response.status(201).json({
@@ -256,12 +340,14 @@ studyRecordsRouter.post(
         message:
           '학습 기록이 저장되었습니다.',
         data: {
-          ...recordResult.rows[0],
+          ...savedRecord,
           subject,
         },
       })
     } catch (error) {
-      await client.query('ROLLBACK')
+      await client.query(
+        'ROLLBACK',
+      )
 
       console.error(
         '학습 기록 저장 실패:',
@@ -289,11 +375,26 @@ studyRecordsRouter.get(
     request: Request,
     response: Response,
   ) => {
-    const recordIdResult = z.coerce
-      .number()
-      .int()
-      .positive()
-      .safeParse(request.params.recordId)
+    const userId =
+      request.authUser?.id
+
+    if (!userId) {
+      response.status(401).json({
+        success: false,
+        message:
+          '로그인이 필요합니다.',
+      })
+      return
+    }
+
+    const recordIdResult =
+      z.coerce
+        .number()
+        .int()
+        .positive()
+        .safeParse(
+          request.params.recordId,
+        )
 
     if (!recordIdResult.success) {
       response.status(400).json({
@@ -301,99 +402,98 @@ studyRecordsRouter.get(
         message:
           '학습 기록 ID가 올바르지 않습니다.',
       })
-
       return
     }
 
     try {
-      const result = await pool.query(
-        `
-          SELECT
-            study_records.id,
-            TO_CHAR(
-              study_records.study_date,
-              'YYYY-MM-DD'
-            ) AS date,
-            COALESCE(
-              subjects.name,
-              '기타'
-            ) AS subject,
-            study_records.unit,
-            study_records.minutes,
-            study_records.learned,
-            study_records.difficult,
-            study_records.keywords,
-            study_records.understanding,
-            study_records.created_at
-              AS "createdAt",
-
-            latest_wrong_note.mistake_question
-              AS "mistakeQuestion",
-            latest_wrong_note.wrong_answer
-              AS "wrongAnswer",
-            latest_wrong_note.correct_answer
-              AS "correctAnswer",
-            latest_wrong_note.mistake_reason
-              AS "mistakeReason",
-            latest_wrong_note.wrong_image_path
-              AS "wrongImagePath",
-            latest_wrong_note.wrong_image_name
-              AS "wrongImageName",
-            study_records.quest_status
-              AS "questStatus"
-
-          FROM study_records
-
-          INNER JOIN users
-            ON users.id =
-              study_records.user_id
-
-          LEFT JOIN subjects
-            ON subjects.id =
-              study_records.subject_id
-
-          LEFT JOIN LATERAL (
+      const result =
+        await pool.query(
+          `
             SELECT
-              wrong_notes.mistake_question,
-              wrong_notes.wrong_answer,
-              wrong_notes.correct_answer,
-              wrong_notes.mistake_reason,
-              wrong_notes.wrong_image_path,
-              wrong_notes.wrong_image_name,
-              wrong_notes.quest_status
+              study_records.id,
+              TO_CHAR(
+                study_records.study_date,
+                'YYYY-MM-DD'
+              ) AS date,
+              COALESCE(
+                subjects.name,
+                '기타'
+              ) AS subject,
+              study_records.unit,
+              study_records.minutes,
+              study_records.learned,
+              study_records.difficult,
+              study_records.keywords,
+              study_records.understanding,
+              study_records.created_at
+                AS "createdAt",
 
-            FROM wrong_notes
+              latest_wrong_note.mistake_question
+                AS "mistakeQuestion",
+              latest_wrong_note.wrong_answer
+                AS "wrongAnswer",
+              latest_wrong_note.correct_answer
+                AS "correctAnswer",
+              latest_wrong_note.mistake_reason
+                AS "mistakeReason",
+              latest_wrong_note.wrong_image_path
+                AS "wrongImagePath",
+              latest_wrong_note.wrong_image_name
+                AS "wrongImageName",
+              study_records.quest_status
+                AS "questStatus"
+
+            FROM study_records
+
+            LEFT JOIN subjects
+              ON subjects.id =
+                study_records.subject_id
+
+            LEFT JOIN LATERAL (
+              SELECT
+                wrong_notes.mistake_question,
+                wrong_notes.wrong_answer,
+                wrong_notes.correct_answer,
+                wrong_notes.mistake_reason,
+                wrong_notes.wrong_image_path,
+                wrong_notes.wrong_image_name,
+                wrong_notes.quest_status
+
+              FROM wrong_notes
+
+              WHERE
+                wrong_notes.study_record_id =
+                  study_records.id
+                AND wrong_notes.user_id =
+                  study_records.user_id
+
+              ORDER BY
+                wrong_notes.created_at DESC
+
+              LIMIT 1
+            ) AS latest_wrong_note
+              ON TRUE
 
             WHERE
-              wrong_notes.study_record_id =
-                study_records.id
-
-            ORDER BY
-              wrong_notes.created_at DESC
+              study_records.id = $1
+              AND study_records.user_id = $2
 
             LIMIT 1
-          ) AS latest_wrong_note
-            ON TRUE
+          `,
+          [
+            recordIdResult.data,
+            userId,
+          ],
+        )
 
-          WHERE
-            study_records.id = $1
-            AND users.email = $2
-
-          LIMIT 1
-        `,
-        [
-          recordIdResult.data,
-          DEVELOPMENT_USER_EMAIL,
-        ],
-      )
-
-      if (result.rows.length === 0) {
+      if (
+        result.rows.length === 0
+      ) {
         response.status(404).json({
           success: false,
           message:
             '학습 기록을 찾지 못했습니다.',
         })
-
         return
       }
 
@@ -411,10 +511,11 @@ studyRecordsRouter.get(
             normalizeUploadedFileName(
               wrongImageName,
             ),
-          wrongImage: createImageUrl(
-            request,
-            wrongImagePath,
-          ),
+          wrongImage:
+            createImageUrl(
+              request,
+              wrongImagePath,
+            ),
         },
       })
     } catch (error) {
@@ -442,11 +543,26 @@ studyRecordsRouter.delete(
     request: Request,
     response: Response,
   ) => {
-    const recordIdResult = z.coerce
-      .number()
-      .int()
-      .positive()
-      .safeParse(request.params.recordId)
+    const userId =
+      request.authUser?.id
+
+    if (!userId) {
+      response.status(401).json({
+        success: false,
+        message:
+          '로그인이 필요합니다.',
+      })
+      return
+    }
+
+    const recordIdResult =
+      z.coerce
+        .number()
+        .int()
+        .positive()
+        .safeParse(
+          request.params.recordId,
+        )
 
     if (!recordIdResult.success) {
       response.status(400).json({
@@ -454,11 +570,11 @@ studyRecordsRouter.delete(
         message:
           '학습 기록 ID가 올바르지 않습니다.',
       })
-
       return
     }
 
-    const client = await pool.connect()
+    const client =
+      await pool.connect()
 
     try {
       await client.query('BEGIN')
@@ -466,49 +582,45 @@ studyRecordsRouter.delete(
       await client.query(
         `
           DELETE FROM review_quest_sets
-          USING users
-
           WHERE
-            review_quest_sets.user_id = users.id
-            AND users.email = $1
-            AND review_quest_sets.source_type =
+            user_id = $1
+            AND source_type =
               'study-record'
-            AND review_quest_sets.source_id = $2
+            AND source_id = $2
         `,
         [
-          DEVELOPMENT_USER_EMAIL,
+          userId,
           recordIdResult.data,
         ],
       )
 
-      const result = await client.query(
-        `
-          DELETE FROM study_records
-          USING users
+      const result =
+        await client.query(
+          `
+            DELETE FROM study_records
+            WHERE
+              id = $1
+              AND user_id = $2
+            RETURNING id
+          `,
+          [
+            recordIdResult.data,
+            userId,
+          ],
+        )
 
-          WHERE
-            study_records.id = $1
-            AND study_records.user_id =
-              users.id
-            AND users.email = $2
-
-          RETURNING study_records.id
-        `,
-        [
-          recordIdResult.data,
-          DEVELOPMENT_USER_EMAIL,
-        ],
-      )
-
-      if (result.rows.length === 0) {
-        await client.query('ROLLBACK')
+      if (
+        result.rows.length === 0
+      ) {
+        await client.query(
+          'ROLLBACK',
+        )
 
         response.status(404).json({
           success: false,
           message:
             '삭제할 학습 기록을 찾지 못했습니다.',
         })
-
         return
       }
 
@@ -523,7 +635,9 @@ studyRecordsRouter.delete(
         },
       })
     } catch (error) {
-      await client.query('ROLLBACK')
+      await client.query(
+        'ROLLBACK',
+      )
 
       console.error(
         '학습 기록 삭제 실패:',

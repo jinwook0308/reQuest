@@ -22,10 +22,7 @@ import {
 } from 'lucide-react'
 
 import './QuizPage.css'
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:4000/api'
+import { apiFetch } from '../../lib/api'
 
 type SourceType =
   | 'study-record'
@@ -110,8 +107,8 @@ async function loadQuestSet(
   sourceId: string,
   signal: AbortSignal,
 ): Promise<QuestSet> {
-  const response = await fetch(
-    `${API_BASE_URL}/review-quests/${sourceType}/${sourceId}/quiz`,
+  const response = await apiFetch(
+    `/review-quests/${sourceType}/${sourceId}/quiz`,
     { signal },
   )
 
@@ -125,7 +122,7 @@ async function loadQuestSet(
   ) {
     throw new Error(
       result.message ??
-        '검토 완료된 복습 문제가 없습니다.',
+        '출제할 문제가 없습니다.',
     )
   }
 
@@ -153,8 +150,8 @@ async function loadSourceRecord(
       ? `/wrong-notes/${sourceId}`
       : `/study-records/${sourceId}`
 
-  const response = await fetch(
-    `${API_BASE_URL}${endpoint}`,
+  const response = await apiFetch(
+    endpoint,
     { signal },
   )
 
@@ -400,7 +397,7 @@ function QuizPage() {
         setLoadError(
           error instanceof Error
             ? error.message
-            : '복습 문제를 불러오지 못했습니다.',
+            : '문제를 불러오지 못했습니다.',
         )
       } finally {
         if (
@@ -425,8 +422,9 @@ function QuizPage() {
           <BookOpen size={31} />
 
           <h1>
-            복습 문제를 불러오는
-            중이에요.
+            {isWrongNoteSource
+              ? 'AI 오답 문제를 불러오는 중이에요.'
+              : '복습 문제를 불러오는 중이에요.'}
           </h1>
 
           <p>잠시만 기다려 주세요.</p>
@@ -448,23 +446,28 @@ function QuizPage() {
           <BookOpen size={31} />
 
           <h1>
-            검토 완료된 복습 문제가
-            없어요.
+            {isWrongNoteSource
+              ? '생성된 AI 오답 문제가 없어요.'
+              : '검토 완료된 복습 문제가 없어요.'}
           </h1>
 
           <p>
             {loadError ||
-              '먼저 복습 문제를 생성하고 검토해 주세요.'}
+              (isWrongNoteSource
+                ? '오답노트에서 AI 오답 문제를 생성해 주세요.'
+                : '먼저 복습 문제를 생성하고 검토해 주세요.')}
           </p>
 
           <Link
             to={
               isWrongNoteSource
-                ? `/quest-review/wrong-note/${sourceId}`
+                ? `/wrong-notes/${sourceId}`
                 : `/quest-review/${sourceId}`
             }
           >
-            문제 검토 페이지로 이동
+            {isWrongNoteSource
+              ? '오답노트로 돌아가기'
+              : '문제 검토 페이지로 이동'}
           </Link>
         </section>
       </main>
@@ -544,8 +547,8 @@ function QuizPage() {
       setIsGrading(true)
       setMessage('')
 
-      const response = await fetch(
-        `${API_BASE_URL}/review-quests/${sourceType}/${sourceId}/grade`,
+      const response = await apiFetch(
+        `/review-quests/${sourceType}/${sourceId}/grade`,
         {
           method: 'POST',
           headers: {
@@ -616,8 +619,8 @@ function QuizPage() {
         setIsSavingAttempt(true)
 
         const response =
-          await fetch(
-            `${API_BASE_URL}/review-quests/${sourceType}/${sourceId}/attempts`,
+          await apiFetch(
+            `/review-quests/${sourceType}/${sourceId}/attempts`,
             {
               method: 'POST',
               headers: {
@@ -916,12 +919,14 @@ function QuizPage() {
           <Link
             to={
               isWrongNoteSource
-                ? `/quest-review/wrong-note/${questSet.sourceId}`
+                ? `/wrong-notes/${questSet.sourceId}`
                 : `/quest-review/${questSet.sourceId}`
             }
           >
             <ArrowLeft size={17} />
-            문제 검토로 돌아가기
+            {isWrongNoteSource
+              ? '오답노트로 돌아가기'
+              : '문제 검토로 돌아가기'}
           </Link>
 
           <span>
@@ -950,12 +955,16 @@ function QuizPage() {
             <span className="quiz-eyebrow">
               {quizMode === 'retry'
                 ? `RETRY QUEST · ${retryRound}`
-                : 'REVIEW QUEST'}
+                : isWrongNoteSource
+                  ? 'AI WRONG ANSWER QUEST'
+                  : 'REVIEW QUEST'}
             </span>
 
             <h1>
               {record.unit ||
-                '복습 퀘스트'}
+                (isWrongNoteSource
+                  ? 'AI 오답 문제'
+                  : '복습 퀘스트')}
             </h1>
 
             <p>

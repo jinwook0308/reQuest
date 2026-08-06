@@ -5,10 +5,16 @@ import {
 } from 'express'
 import { z } from 'zod'
 
-import { aiRateLimit } from '../middleware/aiRateLimit'
-import { APP_USER_EMAIL } from '../config/app'
 import { pool } from '../config/db'
-import { isOpenAIConfigured } from '../config/openai'
+import {
+  isOpenAIConfigured,
+} from '../config/openai'
+import {
+  aiRateLimit,
+} from '../middleware/aiRateLimit'
+import {
+  requireAuth,
+} from '../middleware/requireAuth'
 import {
   createOpenAIReviewQuestions,
 } from '../services/openAiReviewQuestGenerator'
@@ -18,7 +24,12 @@ import {
   type ReviewQuestSource,
 } from '../services/reviewQuestGenerator'
 
-const reviewQuestDraftsRouter = Router()
+const reviewQuestDraftsRouter =
+  Router()
+
+reviewQuestDraftsRouter.use(
+  requireAuth,
+)
 
 type ReviewQuestionGenerator =
   | 'openai'
@@ -30,27 +41,34 @@ interface GeneratedReviewQuestions {
   questions: ReviewQuestionDraft[]
 }
 
-const sourceParamsSchema = z.object({
-  sourceType: z.enum([
-    'study-record',
-    'wrong-note',
-  ]),
-  sourceId: z.coerce
-    .number()
-    .int()
-    .positive(),
-})
+const sourceParamsSchema =
+  z.object({
+    sourceType: z.enum([
+      'study-record',
+      'wrong-note',
+    ]),
+
+    sourceId: z.coerce
+      .number()
+      .int()
+      .positive(),
+  })
 
 async function loadSource(
-  sourceType: 'study-record' | 'wrong-note',
+  sourceType:
+    | 'study-record'
+    | 'wrong-note',
   sourceId: number,
+  userId: string,
 ) {
   const query =
     sourceType === 'wrong-note'
       ? `
           SELECT
-            COALESCE(subjects.name, '기타')
-              AS subject,
+            COALESCE(
+              subjects.name,
+              '기타'
+            ) AS subject,
             wrong_notes.unit,
             '' AS learned,
             '' AS difficult,
@@ -69,22 +87,22 @@ async function loadSource(
 
           FROM wrong_notes
 
-          INNER JOIN users
-            ON users.id = wrong_notes.user_id
-
           LEFT JOIN subjects
-            ON subjects.id = wrong_notes.subject_id
+            ON subjects.id =
+              wrong_notes.subject_id
 
           WHERE
             wrong_notes.id = $1
-            AND users.email = $2
+            AND wrong_notes.user_id = $2
 
           LIMIT 1
         `
       : `
           SELECT
-            COALESCE(subjects.name, '기타')
-              AS subject,
+            COALESCE(
+              subjects.name,
+              '기타'
+            ) AS subject,
             study_records.unit,
             study_records.learned,
             study_records.difficult,
@@ -94,33 +112,34 @@ async function loadSource(
             '' AS "correctAnswer",
             '' AS "mistakeReason",
             '' AS concepts,
-            NULL::TEXT AS "wrongImagePath"
+            NULL::TEXT
+              AS "wrongImagePath"
 
           FROM study_records
 
-          INNER JOIN users
-            ON users.id = study_records.user_id
-
           LEFT JOIN subjects
-            ON subjects.id = study_records.subject_id
+            ON subjects.id =
+              study_records.subject_id
 
           WHERE
             study_records.id = $1
-            AND users.email = $2
+            AND study_records.user_id = $2
 
           LIMIT 1
         `
 
-  const result = await pool.query(
-    query,
-    [sourceId, APP_USER_EMAIL],
-  )
+  const result =
+    await pool.query(
+      query,
+      [
+        sourceId,
+        userId,
+      ],
+    )
 
-  return (
-    result.rows[0] as
-      | ReviewQuestSource
-      | undefined
-  )
+  return result.rows[0] as
+    | ReviewQuestSource
+    | undefined
 }
 
 function getErrorMessage(
@@ -163,7 +182,8 @@ async function generateReviewQuestions(
     )
 
     return {
-      generator: 'rule-based-fallback',
+      generator:
+        'rule-based-fallback',
       questions:
         createRuleBasedReviewQuestions(
           source,
@@ -183,6 +203,18 @@ reviewQuestDraftsRouter.post(
     request: Request,
     response: Response,
   ) => {
+    const userId =
+      request.authUser?.id
+
+    if (!userId) {
+      response.status(401).json({
+        success: false,
+        message:
+          '로그인이 필요합니다.',
+      })
+      return
+    }
+
     const paramsResult =
       sourceParamsSchema.safeParse(
         request.params,
@@ -203,10 +235,12 @@ reviewQuestDraftsRouter.post(
     } = paramsResult.data
 
     try {
-      const source = await loadSource(
-        sourceType,
-        sourceId,
-      )
+      const source =
+        await loadSource(
+          sourceType,
+          sourceId,
+          userId,
+        )
 
       if (!source) {
         response.status(404).json({
@@ -220,9 +254,10 @@ reviewQuestDraftsRouter.post(
       const {
         generator,
         questions,
-      } = await generateReviewQuestions(
-        source,
-      )
+      } =
+        await generateReviewQuestions(
+          source,
+        )
 
       const message =
         generator === 'openai'

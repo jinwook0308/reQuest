@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useState,
   type ChangeEvent,
   type FormEvent,
@@ -16,10 +17,21 @@ import {
 } from 'lucide-react'
 
 import './RecordsPage.css'
+import { apiFetch } from '../../lib/api'
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:4000/api'
+type Subject = {
+  id: string
+  name: string
+}
+
+type SubjectsResponse = {
+  success: boolean
+  message?: string
+  data?: Array<{
+    id: string | number
+    name: string
+  }>
+}
 
 type SaveStudyRecordResponse = {
   success: boolean
@@ -50,7 +62,7 @@ function getToday() {
 function RecordsPage() {
   const [record, setRecord] = useState({
     date: getToday(),
-    subject: '수학',
+    subject: '',
     unit: '',
     minutes: '60',
     learned: '',
@@ -67,6 +79,78 @@ function RecordsPage() {
 
   const [savedRecordId, setSavedRecordId] =
     useState<number | null>(null)
+
+  const [subjects, setSubjects] = useState<
+    Subject[]
+  >([])
+  const [isLoadingSubjects, setIsLoadingSubjects] =
+    useState(true)
+  const [subjectLoadError, setSubjectLoadError] =
+    useState('')
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadSubjects() {
+      try {
+        setIsLoadingSubjects(true)
+        setSubjectLoadError('')
+
+        const response = await apiFetch('/subjects', {
+          signal: controller.signal,
+        })
+        const result =
+          (await response.json()) as SubjectsResponse
+
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.message ??
+              '과목을 불러오지 못했습니다.',
+          )
+        }
+
+        const loadedSubjects = (result.data ?? []).map(
+          (subject) => ({
+            id: String(subject.id),
+            name: subject.name,
+          }),
+        )
+
+        setSubjects(loadedSubjects)
+        setRecord((previousRecord) => ({
+          ...previousRecord,
+          subject:
+            loadedSubjects.some(
+              (subject) =>
+                subject.name === previousRecord.subject,
+            )
+              ? previousRecord.subject
+              : (loadedSubjects[0]?.name ?? ''),
+        }))
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name === 'AbortError'
+        ) {
+          return
+        }
+
+        setSubjectLoadError(
+          error instanceof Error
+            ? error.message
+            : '과목을 불러오지 못했습니다.',
+        )
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingSubjects(false)
+        }
+      }
+    }
+
+    void loadSubjects()
+
+    return () => controller.abort()
+  }, [])
 
   const handleChange = (
     event: ChangeEvent<
@@ -95,8 +179,8 @@ function RecordsPage() {
     setSavedRecordId(null)
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/study-records`,
+      const response = await apiFetch(
+        '/study-records',
         {
           method: 'POST',
           headers: {
@@ -213,35 +297,35 @@ function RecordsPage() {
                   name="subject"
                   value={record.subject}
                   onChange={handleChange}
+                  disabled={
+                    isLoadingSubjects ||
+                    subjects.length === 0
+                  }
+                  required
                 >
-                  <option value="수학">
-                    수학
-                  </option>
-
-                  <option value="국어">
-                    국어
-                  </option>
-
-                  <option value="영어">
-                    영어
-                  </option>
-
-                  <option value="과학">
-                    과학
-                  </option>
-
-                  <option value="사회">
-                    사회
-                  </option>
-
-                  <option value="프로그래밍">
-                    프로그래밍
-                  </option>
-
-                  <option value="기타">
-                    기타
-                  </option>
+                  {isLoadingSubjects ? (
+                    <option value="">
+                      과목을 불러오는 중입니다
+                    </option>
+                  ) : subjects.length === 0 ? (
+                    <option value="">
+                      먼저 과목을 추가해 주세요
+                    </option>
+                  ) : (
+                    subjects.map((subject) => (
+                      <option
+                        value={subject.name}
+                        key={subject.id}
+                      >
+                        {subject.name}
+                      </option>
+                    ))
+                  )}
                 </select>
+
+                {subjectLoadError ? (
+                  <small>{subjectLoadError}</small>
+                ) : null}
               </label>
 
               <label className="record-field record-field-wide">

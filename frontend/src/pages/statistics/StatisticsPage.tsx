@@ -27,9 +27,7 @@ import {
 
 import './StatisticsPage.css'
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:4000/api'
+import { apiFetch } from '../../lib/api'
 
 type SavedStudyRecord = {
   id: number
@@ -490,6 +488,21 @@ function createSubjectStatistics(
     )
 }
 
+function formatSubjectAxisLabel(
+  value: string,
+) {
+  const characters =
+    Array.from(value)
+
+  if (characters.length <= 11) {
+    return value
+  }
+
+  return `${characters
+    .slice(0, 10)
+    .join('')}…`
+}
+
 function StudyTimeTooltip({
   active,
   payload,
@@ -640,8 +653,8 @@ function StatisticsPage() {
     async function loadSavedRecords() {
       try {
         const response =
-          await fetch(
-            `${API_BASE_URL}/study-records`,
+          await apiFetch(
+            '/study-records',
             {
               signal:
                 controller.signal,
@@ -734,8 +747,8 @@ function StatisticsPage() {
     async function loadLearningStatistics() {
       try {
         const response =
-          await fetch(
-            `${API_BASE_URL}/statistics/learning?days=30`,
+          await apiFetch(
+            '/statistics/learning?days=30',
             {
               signal:
                 controller.signal,
@@ -822,6 +835,28 @@ function StatisticsPage() {
   const subjectStatistics =
     learningStatistics?.subjects ??
     localSubjectStatistics
+
+  const subjectAxisWidth =
+    Math.min(
+      190,
+      Math.max(
+        140,
+        subjectStatistics.reduce(
+          (longest, statistics) =>
+            Math.max(
+              longest,
+              Array.from(
+                formatSubjectAxisLabel(
+                  statistics.subject,
+                ),
+              ).length,
+            ),
+          0,
+        ) *
+          13 +
+          28,
+      ),
+    )
 
   const growthStatistics =
     useMemo(() => {
@@ -1455,7 +1490,7 @@ function StatisticsPage() {
                       top: 10,
                       right: 25,
                       bottom: 10,
-                      left: 5,
+                      left: 12,
                     }}
                   >
                     <CartesianGrid
@@ -1489,11 +1524,16 @@ function StatisticsPage() {
                       dataKey="subject"
                       axisLine={false}
                       tickLine={false}
-                      width={75}
+                      width={
+                        subjectAxisWidth
+                      }
                       tick={{
                         fontSize: 12,
                         fill: '#57544d',
                       }}
+                      tickFormatter={
+                        formatSubjectAxisLabel
+                      }
                     />
 
                     <Tooltip
