@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import {
   ArrowLeft,
   ArrowRight,
@@ -36,6 +36,10 @@ type SavedStudyRecord = {
   id: number
   date: string
   subject: string
+  recordType?: 'general' | 'certification'
+  certificationName?: string | null
+  examType?: 'written' | 'practical' | null
+  examDate?: string | null
   unit: string
   minutes: number
   learned: string
@@ -74,6 +78,17 @@ type SubjectsApiResponse = {
   success: boolean
   message?: string
   data?: SubjectApiItem[]
+}
+
+function isCertificationRecord(record: SavedStudyRecord) {
+  return (
+    record.recordType === 'certification' ||
+    record.subject.trim() === '자격증'
+  )
+}
+
+function getCertificationBookName(record: SavedStudyRecord) {
+  return record.certificationName?.trim() || '자격증'
 }
 
 const understandingLabels: Record<number, string> = {
@@ -135,6 +150,12 @@ function formatStudyTime(minutes: number | string) {
 }
 
 function HistoryPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const recordView =
+    searchParams.get('type') === 'certification'
+      ? 'certification'
+      : 'general'
+  const isCertificationView = recordView === 'certification'
   const [records, setRecords] = useState<SavedStudyRecord[]>([])
   const [availableSubjects, setAvailableSubjects] = useState<
     Array<{ id: string; name: string }>
@@ -144,7 +165,7 @@ function HistoryPage() {
   >('loading')
   const [loadMessage, setLoadMessage] = useState('')
   const [selectedSubject, setSelectedSubject] = useState<string | null>(
-    null,
+    () => searchParams.get('subject'),
   )
   const [searchText, setSearchText] = useState('')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -153,6 +174,10 @@ function HistoryPage() {
   const todayKey = useMemo(() => formatDateKey(today), [today])
   const currentYear = today.getFullYear()
   const currentMonth = today.getMonth()
+
+  useEffect(() => {
+    setSelectedSubject(searchParams.get('subject'))
+  }, [searchParams])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -205,7 +230,11 @@ function HistoryPage() {
         )
         setAvailableSubjects(
           subjectsResult.data
-            .filter((subject) => subject.name !== '기타')
+            .filter(
+              (subject) =>
+                subject.name !== '기타' &&
+                subject.name !== '자격증',
+            )
             .map((subject) => ({
               id: String(subject.id),
               name: subject.name,
@@ -258,36 +287,79 @@ const handleSubjectCreated = (
 }
 
 
-  const subjectBookItems = useMemo<SubjectBookItem[]>(
+  const scopedRecords = useMemo(
     () =>
-      availableSubjects.map((subject) => {
-        const subjectRecords = records.filter(
-          (record) => record.subject === subject.name,
+      records.filter((record) =>
+        isCertificationView
+          ? isCertificationRecord(record)
+          : !isCertificationRecord(record),
+      ),
+    [isCertificationView, records],
+  )
+
+  const subjectBookItems = useMemo<SubjectBookItem[]>(() => {
+    if (isCertificationView) {
+      const certificationNames = Array.from(
+        new Set(
+          scopedRecords
+            .map(getCertificationBookName)
+            .filter((name): name is string => Boolean(name)),
+        ),
+      )
+
+      return certificationNames.map((certificationName) => {
+        const certificationRecords = scopedRecords.filter(
+          (record) =>
+            getCertificationBookName(record) === certificationName,
         )
-        const subjectMinutes = subjectRecords.reduce(
+        const certificationMinutes = certificationRecords.reduce(
           (total, record) => total + Number(record.minutes || 0),
           0,
         )
 
         return {
-          id: subject.id,
-          subject: subject.name,
-          eyebrow: 'LEARNING RECORD',
-          meta: `${subjectRecords.length}개 기록 · ${formatStudyTime(
-            subjectMinutes,
+          id: `certification-${certificationName}`,
+          subject: certificationName,
+          eyebrow: 'CERTIFICATION RECORD',
+          meta: `${certificationRecords.length}개 기록 · ${formatStudyTime(
+            certificationMinutes,
           )}`,
+          badge: '자격증',
         }
-      }),
-    [availableSubjects, records],
-  )
+      })
+    }
+
+    return availableSubjects.map((subject) => {
+      const subjectRecords = scopedRecords.filter(
+        (record) => record.subject === subject.name,
+      )
+      const subjectMinutes = subjectRecords.reduce(
+        (total, record) => total + Number(record.minutes || 0),
+        0,
+      )
+
+      return {
+        id: subject.id,
+        subject: subject.name,
+        eyebrow: 'LEARNING RECORD',
+        meta: `${subjectRecords.length}개 기록 · ${formatStudyTime(
+          subjectMinutes,
+        )}`,
+      }
+    })
+  }, [availableSubjects, isCertificationView, scopedRecords])
 
   const selectedSubjectRecords = useMemo(() => {
     if (!selectedSubject) {
       return []
     }
 
-    return records.filter((record) => record.subject === selectedSubject)
-  }, [records, selectedSubject])
+    return scopedRecords.filter((record) =>
+      isCertificationView
+        ? getCertificationBookName(record) === selectedSubject
+        : record.subject === selectedSubject,
+    )
+  }, [isCertificationView, scopedRecords, selectedSubject])
 
   const selectedSubjectMinutes = selectedSubjectRecords.reduce(
     (total, record) => total + Number(record.minutes || 0),
@@ -310,6 +382,7 @@ const handleSubjectCreated = (
         const matchesDate = !selectedDate || record.date === selectedDate
         const searchableText = [
           record.subject,
+          record.certificationName ?? '',
           record.unit,
           record.learned,
           record.difficult,
@@ -368,6 +441,10 @@ const handleSubjectCreated = (
 
   const handleOpenSubjectBook = (book: SubjectBookItem) => {
     setSelectedSubject(book.subject)
+    setSearchParams({
+      type: recordView,
+      subject: book.subject,
+    })
     setSearchText('')
     setSelectedDate(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -375,10 +452,19 @@ const handleSubjectCreated = (
 
   const handleCloseSubjectBook = () => {
     setSelectedSubject(null)
+    setSearchParams({ type: recordView })
     setSearchText('')
     setSelectedDate(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  const createRecordPath = isCertificationView
+    ? `/records?type=certification&certificationName=${encodeURIComponent(
+        selectedSubject ?? '',
+      )}`
+    : `/records?type=general&subject=${encodeURIComponent(
+        selectedSubject ?? '',
+      )}`
 
   const handleDateClick = (dateKey: string) => {
     setSelectedDate((previousDate) =>
@@ -428,7 +514,7 @@ const handleSubjectCreated = (
             onClick={handleCloseSubjectBook}
           >
             <ArrowLeft size={18} />
-            과목 노트 목록
+            {isCertificationView ? '자격증 노트 목록' : '과목 노트 목록'}
           </button>
         </div>
 
@@ -439,11 +525,19 @@ const handleSubjectCreated = (
             </span>
 
             <div>
-              <span className="opened-note-label">LEARNING RECORD</span>
-              <h1>{selectedSubject} 학습 노트</h1>
+              <span className="opened-note-label">
+                {isCertificationView
+                  ? 'CERTIFICATION RECORD'
+                  : 'LEARNING RECORD'}
+              </span>
+              <h1>
+                {selectedSubject}{' '}
+                {isCertificationView ? '자격증 노트' : '학습 노트'}
+              </h1>
               <p>
-                매일 남긴 학습 내용을 다시 확인하고 성장 과정을
-                살펴보세요.
+                {isCertificationView
+                  ? '필기·실기 학습 기록과 시험 준비 과정을 한곳에서 확인해 보세요.'
+                  : '매일 남긴 학습 내용을 다시 확인하고 성장 과정을 살펴보세요.'}
               </p>
             </div>
           </div>
@@ -477,7 +571,10 @@ const handleSubjectCreated = (
                 <h2>학습 기록 모아보기</h2>
               </div>
 
-              <Link className="history-note-create-button" to="/records">
+              <Link
+                className="history-note-create-button"
+                to={createRecordPath}
+              >
                 <Plus size={17} />
                 학습 기록 추가
               </Link>
@@ -522,11 +619,13 @@ const handleSubjectCreated = (
                     <BookOpen size={42} />
                     <h3>아직 등록된 학습 기록이 없어요.</h3>
                     <p>
-                      먼저 {selectedSubject} 학습 기록을 남겨주세요.
+                      먼저 {selectedSubject}{' '}
+                      {isCertificationView ? '자격증' : '학습'} 기록을
+                      남겨주세요.
                     </p>
                     <Link
                       className="history-empty-create-button"
-                      to="/records"
+                      to={createRecordPath}
                     >
                       학습 기록 작성하기
                     </Link>
@@ -566,7 +665,9 @@ const handleSubjectCreated = (
                                 {formatRecordDate(record.date)}
                               </span>
                               <span className="history-record-subject">
-                                {record.subject}
+                                 {isCertificationView
+                                   ? getCertificationBookName(record)
+                                   : record.subject}
                               </span>
                             </div>
 
@@ -592,7 +693,11 @@ const handleSubjectCreated = (
 
                           <h2>
                             {record.unit.trim() ||
-                              `${record.subject} 학습`}
+                               `${
+                                 isCertificationView
+                                   ? getCertificationBookName(record)
+                                   : record.subject
+                               } 학습`}
                           </h2>
 
                           <div className="history-record-meta">
@@ -674,11 +779,20 @@ const handleSubjectCreated = (
   return (
     <main className="history-page ai-review-page">
       <section className="ai-review-hero">
-        <span className="ai-review-eyebrow">LEARNING ARCHIVE</span>
-        <h1>나의 학습 기록</h1>
+        <span className="ai-review-eyebrow">
+          {isCertificationView
+            ? 'CERTIFICATION ARCHIVE'
+            : 'LEARNING ARCHIVE'}
+        </span>
+        <h1>
+          {isCertificationView
+            ? '나의 자격증 공부 기록'
+            : '나의 일반 학습 기록'}
+        </h1>
         <p>
-          과목별 학습 노트를 열어 매일 남긴 기록과 성장 과정을
-          확인해 보세요.
+          {isCertificationView
+            ? '자격증별 노트를 열어 필기·실기 공부 기록과 시험 준비 과정을 확인해 보세요.'
+            : '과목별 학습 노트를 열어 매일 남긴 기록과 성장 과정을 확인해 보세요.'}
         </p>
       </section>
 
@@ -695,12 +809,19 @@ const handleSubjectCreated = (
         <section className="review-library">
           <div className="review-library-heading">
             <div>
-              <span>MY SUBJECTS</span>
-              <h2>과목별 학습 노트</h2>
+               <span>
+                 {isCertificationView ? 'MY CERTIFICATES' : 'MY SUBJECTS'}
+               </span>
+               <h2>
+                 {isCertificationView
+                   ? '자격증별 학습 노트'
+                   : '과목별 학습 노트'}
+               </h2>
             </div>
             <p>
-              노트를 선택하면 표지가 열리면서 해당 과목의 학습 기록이
-              나타납니다.
+               노트를 선택하면 표지가 열리면서 해당{' '}
+               {isCertificationView ? '자격증' : '과목'}의 학습 기록이
+               나타납니다.
             </p>
           </div>
 
@@ -708,12 +829,34 @@ const handleSubjectCreated = (
             items={subjectBookItems}
             variant="study"
             hoverLabel="학습 기록 열어보기"
-            emptyMessage="아직 등록된 과목이 없습니다."
+             emptyMessage={
+               isCertificationView
+                 ? '아직 등록된 자격증이 없습니다.'
+                 : '아직 등록된 과목이 없습니다.'
+             }
             onOpen={handleOpenSubjectBook}
           >
-            <SubjectCreateBook
-              onCreated={handleSubjectCreated}
-            />
+             {isCertificationView ? (
+               <Link
+                 className="subject-book subject-create-book"
+                 to="/records?type=certification"
+                 aria-label="새 자격증 학습 기록 추가"
+               >
+                 <span className="subject-book__pages subject-create-book__pages" />
+                 <span className="subject-book__cover subject-create-book__cover">
+                   <span className="subject-book__spine subject-create-book__spine" />
+                   <span className="subject-create-book__content">
+                     <span className="subject-create-book__icon">
+                       <Plus size={30} strokeWidth={1.6} />
+                     </span>
+                     <strong>자격증 추가</strong>
+                     <small>새 자격증 노트 만들기</small>
+                   </span>
+                 </span>
+               </Link>
+             ) : (
+               <SubjectCreateBook onCreated={handleSubjectCreated} />
+             )}
         </SubjectBookshelf>
       </section>
       )}

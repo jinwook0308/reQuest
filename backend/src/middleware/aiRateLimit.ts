@@ -10,3 +10,14 @@ export const aiRateLimit = rateLimit({
   standardHeaders: true, // `RateLimit-*` 헤더 반환
   legacyHeaders: false, // `X-RateLimit-*` 헤더 비활성화
 });
+
+export const aiRecommendationRateLimit = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  message: {
+    success: false,
+    message: "AI 맞춤 추천 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

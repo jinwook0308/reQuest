@@ -159,6 +159,157 @@
   color: #77746d;
 }
 
+.app-header-study-menu-area {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+}
+
+.app-header-study-trigger {
+  gap: 5px;
+}
+
+.app-header-study-trigger > svg {
+  transition: transform 160ms ease;
+}
+
+.app-header-study-trigger > svg.is-open {
+  transform: rotate(180deg);
+}
+
+.app-header-study-menu {
+  position: absolute;
+  top: calc(100% - 7px);
+  left: 50%;
+  z-index: 130;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.72fr) minmax(390px, 1.28fr);
+  width: min(720px, calc(100vw - 32px));
+  overflow: hidden;
+  border: 1px solid #dfd9cf;
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.99);
+  box-shadow: 0 25px 65px rgba(35, 30, 22, 0.17);
+  transform: translateX(-50%);
+  animation: app-header-study-open 180ms ease-out;
+}
+
+.app-header-study-menu-intro {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 28px;
+  color: #f8f4ec;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(202, 157, 75, 0.19), transparent 42%),
+    #17222e;
+}
+
+.app-header-study-menu-intro > span {
+  color: #d6a653;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.app-header-study-menu-intro strong {
+  margin-top: 13px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 21px;
+  line-height: 1.35;
+}
+
+.app-header-study-menu-intro p {
+  margin: 10px 0 0;
+  color: #aeb8c1;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.app-header-study-menu-links {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+}
+
+.app-header-study-menu-links > a:not(.app-header-study-history-link) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  min-height: 74px;
+  padding: 11px 13px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: #282620;
+  text-decoration: none;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.app-header-study-menu-links > a:not(.app-header-study-history-link):hover {
+  border-color: #e4ded4;
+  background: #faf8f3;
+  transform: translateX(2px);
+}
+
+.app-header-study-menu-links > a > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+}
+
+.app-header-study-menu-links .is-general {
+  color: #826225;
+  background: #f6ecd5;
+}
+
+.app-header-study-menu-links .is-certification {
+  color: #3f6252;
+  background: #e4efe8;
+}
+
+.app-header-study-menu-links a div {
+  min-width: 0;
+}
+
+.app-header-study-menu-links a strong {
+  display: block;
+  font-size: 13px;
+}
+
+.app-header-study-menu-links a p {
+  margin: 5px 0 0;
+  color: #858078;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.app-header-study-menu-arrow {
+  color: #aaa49a;
+  font-size: 18px;
+}
+
+.app-header-study-menu-links .app-header-study-history-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin: 3px 0 0 13px;
+  padding: 8px 0;
+  color: #666159;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.app-header-study-history-link:hover {
+  color: #1f1e1a;
+}
+
 .app-header-actions {
   display: flex;
   align-items: center;
@@ -381,6 +532,18 @@
   }
 }
 
+@keyframes app-header-study-open {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
 @media (max-width: 1250px) {
   .app-header {
     grid-template-columns:
@@ -458,6 +621,32 @@
     right: 14px;
     bottom: 4px;
     left: 14px;
+  }
+
+  .app-header-study-menu-area {
+    display: block;
+    height: auto;
+  }
+
+  .app-header-study-trigger {
+    width: 100%;
+  }
+
+  .app-header-study-menu {
+    position: static;
+    grid-template-columns: 1fr;
+    width: 100%;
+    margin: 5px 0 12px;
+    transform: none;
+    animation: none;
+  }
+
+  .app-header-study-menu-intro {
+    padding: 20px;
+  }
+
+  .app-header-study-menu-links {
+    padding: 10px;
   }
 }
 
