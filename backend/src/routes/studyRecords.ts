@@ -31,6 +31,38 @@ function createImageUrl(
 
 const createStudyRecordSchema =
   z.object({
+    recordType: z
+      .enum(['general', 'certification'])
+      .default('general'),
+
+    certificationName: z
+      .string()
+      .trim()
+      .max(
+        120,
+        '자격증명은 120자 이하로 입력해 주세요.',
+      )
+      .optional()
+      .nullable()
+      .transform((value) => value || null),
+
+    examType: z
+      .enum(['written', 'practical'])
+      .optional()
+      .nullable()
+      .default(null),
+
+    examDate: z
+      .union([
+        z.string().regex(
+          /^\d{4}-\d{2}-\d{2}$/,
+          '시험일 형식이 올바르지 않습니다.',
+        ),
+        z.literal(''),
+      ])
+      .optional()
+      .nullable()
+      .transform((value) => value || null),
     date: z
       .string()
       .regex(
@@ -106,6 +138,27 @@ const createStudyRecordSchema =
       .min(1)
       .max(5),
   })
+  .superRefine((data, context) => {
+    if (data.recordType !== 'certification') {
+      return
+    }
+
+    if (!data.certificationName) {
+      context.addIssue({
+        code: 'custom',
+        path: ['certificationName'],
+        message: '준비하는 자격증명을 입력해 주세요.',
+      })
+    }
+
+    if (!data.examType) {
+      context.addIssue({
+        code: 'custom',
+        path: ['examType'],
+        message: '필기 또는 실기를 선택해 주세요.',
+      })
+    }
+  })
 
 /**
  * 학습 기록 목록 조회
@@ -144,6 +197,16 @@ studyRecordsRouter.get(
                 '기타'
               ) AS subject,
               study_records.unit,
+              study_records.record_type
+                AS "recordType",
+              study_records.certification_name
+                AS "certificationName",
+              study_records.exam_type
+                AS "examType",
+              TO_CHAR(
+                study_records.exam_date,
+                'YYYY-MM-DD'
+              ) AS "examDate",
               study_records.minutes,
               study_records.learned,
               study_records.difficult,
@@ -231,6 +294,10 @@ studyRecordsRouter.post(
 
     const {
       date,
+      recordType,
+      certificationName,
+      examType,
+      examDate,
       subject,
       unit,
       minutes,
@@ -288,11 +355,16 @@ studyRecordsRouter.post(
               learned,
               difficult,
               keywords,
-              understanding
+              understanding,
+              record_type,
+              certification_name,
+              exam_type,
+              exam_date
             )
             VALUES (
               $1, $2, $3, $4, $5,
-              $6, $7, $8, $9
+              $6, $7, $8, $9, $10,
+              $11, $12, $13
             )
             RETURNING
               id,
@@ -306,6 +378,16 @@ studyRecordsRouter.post(
               difficult,
               keywords,
               understanding,
+              record_type
+                AS "recordType",
+              certification_name
+                AS "certificationName",
+              exam_type
+                AS "examType",
+              TO_CHAR(
+                exam_date,
+                'YYYY-MM-DD'
+              ) AS "examDate",
               quest_status
                 AS "questStatus",
               created_at
@@ -321,6 +403,16 @@ studyRecordsRouter.post(
             difficult,
             keywords,
             understanding,
+            recordType,
+            recordType === 'certification'
+              ? certificationName
+              : null,
+            recordType === 'certification'
+              ? examType
+              : null,
+            recordType === 'certification'
+              ? examDate
+              : null,
           ],
         )
 
@@ -420,6 +512,16 @@ studyRecordsRouter.get(
                 '기타'
               ) AS subject,
               study_records.unit,
+              study_records.record_type
+                AS "recordType",
+              study_records.certification_name
+                AS "certificationName",
+              study_records.exam_type
+                AS "examType",
+              TO_CHAR(
+                study_records.exam_date,
+                'YYYY-MM-DD'
+              ) AS "examDate",
               study_records.minutes,
               study_records.learned,
               study_records.difficult,

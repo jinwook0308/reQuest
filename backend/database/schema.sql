@@ -34,6 +34,10 @@ CREATE TABLE IF NOT EXISTS study_records (
         ON DELETE SET NULL,
 
     study_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    record_type VARCHAR(20) NOT NULL DEFAULT 'general',
+    certification_name VARCHAR(120),
+    exam_type VARCHAR(20),
+    exam_date DATE,
     unit VARCHAR(150) NOT NULL,
     minutes INTEGER NOT NULL DEFAULT 0,
     learned TEXT NOT NULL DEFAULT '',
@@ -51,6 +55,32 @@ CREATE TABLE IF NOT EXISTS study_records (
     CONSTRAINT study_records_understanding_check
         CHECK (understanding BETWEEN 1 AND 5),
 
+    CONSTRAINT study_records_record_type_check
+        CHECK (
+            record_type IN (
+                'general',
+                'certification'
+            )
+        ),
+
+    CONSTRAINT study_records_exam_type_check
+        CHECK (
+            exam_type IS NULL
+            OR exam_type IN (
+                'written',
+                'practical'
+            )
+        ),
+
+    CONSTRAINT study_records_certification_fields_check
+        CHECK (
+            record_type = 'general'
+            OR (
+                certification_name IS NOT NULL
+                AND exam_type IS NOT NULL
+            )
+        ),
+
     CONSTRAINT study_records_quest_status_check
         CHECK (
             quest_status IN (
@@ -62,7 +92,35 @@ CREATE TABLE IF NOT EXISTS study_records (
         )
 );
 
--- 4. 검토를 마친 복습 문제 세트
+-- 4. 학습 기록별 AI 맞춤 추천
+CREATE TABLE IF NOT EXISTS study_recommendation_sets (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+    study_record_id BIGINT NOT NULL
+        REFERENCES study_records(id)
+        ON DELETE CASCADE,
+    generator VARCHAR(30) NOT NULL,
+    recommendations JSONB NOT NULL DEFAULT '[]'::JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT study_recommendation_generator_check
+        CHECK (
+            generator IN (
+                'openai',
+                'rule-based',
+                'rule-based-fallback'
+            )
+        ),
+    CONSTRAINT study_recommendations_json_check
+        CHECK (JSONB_TYPEOF(recommendations) = 'array'),
+    CONSTRAINT study_recommendation_record_unique
+        UNIQUE (user_id, study_record_id)
+);
+
+-- 5. 검토를 마친 복습 문제 세트
 CREATE TABLE IF NOT EXISTS review_quest_sets (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL
@@ -85,7 +143,7 @@ CREATE TABLE IF NOT EXISTS review_quest_sets (
         UNIQUE (user_id, source_type, source_id)
 );
 
--- 5. 복습 퀴즈 응시 결과
+-- 6. 복습 퀴즈 응시 결과
 CREATE TABLE IF NOT EXISTS quiz_attempts (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL
@@ -122,7 +180,7 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
         CHECK (JSONB_TYPEOF(answers) = 'array')
 );
 
--- 6. 오답노트
+-- 7. 오답노트
 CREATE TABLE IF NOT EXISTS wrong_notes (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL
@@ -171,6 +229,9 @@ CREATE INDEX IF NOT EXISTS idx_study_records_user_date
 
 CREATE INDEX IF NOT EXISTS idx_study_records_subject_id
     ON study_records(subject_id);
+
+CREATE INDEX IF NOT EXISTS idx_study_recommendation_sets_record
+    ON study_recommendation_sets(user_id, study_record_id);
 
 CREATE INDEX IF NOT EXISTS idx_wrong_notes_user_date
     ON wrong_notes(user_id, study_date DESC);

@@ -10,6 +10,7 @@ import {
 import {
   ArrowLeft,
   ArrowRight,
+  Award,
   BookOpen,
   CalendarDays,
   Clock3,
@@ -17,6 +18,7 @@ import {
   ImageOff,
   KeyRound,
   Lightbulb,
+  RefreshCw,
   Sparkles,
   Star,
   Trash2,
@@ -31,6 +33,10 @@ type SavedStudyRecord = {
   id: number
   date: string
   subject: string
+  recordType?: 'general' | 'certification'
+  certificationName?: string | null
+  examType?: 'written' | 'practical' | null
+  examDate?: string | null
   unit: string
   minutes: number
   learned: string
@@ -65,6 +71,27 @@ type StudyRecordApiResponse = {
 type DeleteRecordApiResponse = {
   success: boolean
   message?: string
+}
+
+type StudyRecommendation = {
+  concept: string
+  reason: string
+  action: string
+  examArea?: string
+  questionType?: string
+}
+
+type StudyRecommendationsResponse = {
+  success: boolean
+  message?: string
+  data?: {
+    generator:
+      | 'openai'
+      | 'rule-based'
+      | 'rule-based-fallback'
+    recommendations: StudyRecommendation[]
+    updatedAt?: string
+  } | null
 }
 
 const understandingLabels: Record<
@@ -139,6 +166,17 @@ function HistoryDetailPage() {
   const [isImageOpen, setIsImageOpen] =
     useState(false)
 
+  const [recommendations, setRecommendations] =
+    useState<StudyRecommendation[]>([])
+
+  const [recommendationStatus, setRecommendationStatus] =
+    useState<
+      'idle' | 'loading' | 'success' | 'error'
+    >('idle')
+
+  const [recommendationMessage, setRecommendationMessage] =
+    useState('')
+
   useEffect(() => {
     let ignoreResult = false
 
@@ -184,6 +222,9 @@ function HistoryDetailPage() {
         if (!ignoreResult) {
           setRecord(normalizedRecord)
           setLoadStatus('success')
+          setRecommendations([])
+          setRecommendationStatus('idle')
+          setRecommendationMessage('')
         }
       } catch (error) {
         console.error(
@@ -204,6 +245,67 @@ function HistoryDetailPage() {
       ignoreResult = true
     }
   }, [recordId])
+
+  useEffect(() => {
+    if (!record) {
+      return
+    }
+
+    const controller = new AbortController()
+
+    const loadSavedRecommendations = async () => {
+      try {
+        const response = await apiFetch(
+          `/study-recommendations/${record.id}`,
+          { signal: controller.signal },
+        )
+        const result =
+          (await response.json()) as StudyRecommendationsResponse
+
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.message ??
+              '저장된 AI 추천을 불러오지 못했습니다.',
+          )
+        }
+
+        if (!result.data?.recommendations.length) {
+          setRecommendations([])
+          setRecommendationStatus('idle')
+          setRecommendationMessage('')
+          return
+        }
+
+        setRecommendations(result.data.recommendations)
+        setRecommendationStatus('success')
+        setRecommendationMessage(
+          result.message ??
+            '저장된 AI 맞춤 추천을 불러왔습니다.',
+        )
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name === 'AbortError'
+        ) {
+          return
+        }
+
+        console.error(
+          '저장된 AI 추천을 불러오지 못했습니다.',
+          error,
+        )
+        setRecommendations([])
+        setRecommendationStatus('idle')
+        setRecommendationMessage('')
+      }
+    }
+
+    void loadSavedRecommendations()
+
+    return () => {
+      controller.abort()
+    }
+  }, [record])
 
   useEffect(() => {
     if (!isImageOpen) {
@@ -291,6 +393,15 @@ function HistoryDetailPage() {
     .map((keyword) => keyword.trim())
     .filter(Boolean)
 
+  const isCertification =
+    record.recordType === 'certification' ||
+    record.subject.trim() === '자격증'
+
+  const examTypeLabel =
+    record.examType === 'practical'
+      ? '실기'
+      : '필기'
+
   const handleDelete = async () => {
     const shouldDelete = window.confirm(
       '이 학습 기록을 삭제할까요?',
@@ -318,7 +429,18 @@ function HistoryDetailPage() {
         )
       }
 
-      navigate('/history')
+      const bookName =
+        isCertification
+          ? record.certificationName || '자격증'
+          : record.subject
+      const recordType =
+        isCertification
+          ? 'certification'
+          : 'general'
+
+      navigate(
+        `/history?type=${recordType}&subject=${encodeURIComponent(bookName)}`,
+      )
     } catch (error) {
       console.error(
         '학습 기록을 삭제하지 못했습니다.',
@@ -331,13 +453,66 @@ function HistoryDetailPage() {
     }
   }
 
+  const handleRequestRecommendations = async () => {
+    setRecommendationStatus('loading')
+    setRecommendationMessage('')
+
+    try {
+      const response = await apiFetch(
+        `/study-recommendations/${record.id}`,
+        {
+          method: 'POST',
+        },
+      )
+
+      const result =
+        (await response.json()) as StudyRecommendationsResponse
+
+      if (
+        !response.ok ||
+        !result.success ||
+        !result.data?.recommendations.length
+      ) {
+        throw new Error(
+          result.message ??
+            'AI 맞춤 추천을 만들지 못했습니다.',
+        )
+      }
+
+      setRecommendations(
+        result.data.recommendations,
+      )
+      setRecommendationStatus('success')
+      setRecommendationMessage(
+        result.message ??
+          'AI 맞춤 추천을 만들었습니다.',
+      )
+    } catch (error) {
+      setRecommendations([])
+      setRecommendationStatus('error')
+      setRecommendationMessage(
+        error instanceof Error
+          ? error.message
+          : 'AI 맞춤 추천을 만들지 못했습니다.',
+      )
+    }
+  }
+
+  const subjectNotePath = `/history?type=${
+    isCertification ? 'certification' : 'general'
+  }&subject=${encodeURIComponent(
+    isCertification
+      ? record.certificationName || '자격증'
+      : record.subject,
+  )}`
+
   return (
     <main className="history-detail-page">
       <div className="history-detail-container">
         <div className="history-detail-topbar">
-          <Link to="/history">
+          <Link to={subjectNotePath}>
             <ArrowLeft size={17} />
-            학습 기록으로 돌아가기
+            이전으로
           </Link>
 
           <button
@@ -365,7 +540,15 @@ function HistoryDetailPage() {
             </h1>
 
             <div className="history-detail-heading-meta">
-              <span>{record.subject}</span>
+              <span>
+                {isCertification
+                  ? record.certificationName || '자격증'
+                  : record.subject}
+              </span>
+
+              {isCertification && (
+                <span>{examTypeLabel} 시험 대비</span>
+              )}
 
               <span>
                 {formatRecordDate(
@@ -474,6 +657,182 @@ function HistoryDetailPage() {
               </div>
             </div>
           )}
+
+          <div className="history-detail-ai">
+            <div className="history-detail-ai-heading">
+              <span>
+                <Sparkles size={18} />
+              </span>
+
+              <div>
+                <h3>
+                  {isCertification
+                    ? 'AI 자격증 시험 연계 분석'
+                    : 'AI 맞춤 학습 추천'}
+                </h3>
+
+                <p>
+                  {isCertification
+                    ? `${record.certificationName || '자격증'} ${examTypeLabel} 대비 관점에서 학습 기록을 분석합니다.`
+                    : '저장된 이해 내용, 다시 볼 내용, 핵심 키워드와 이해도를 함께 분석합니다.'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  void handleRequestRecommendations()
+                }}
+                disabled={
+                  recommendationStatus === 'loading'
+                }
+              >
+                {recommendationStatus === 'loading' ? (
+                  <>
+                    <RefreshCw
+                      className="is-spinning"
+                      size={15}
+                    />
+                    분석 중
+                  </>
+                ) : recommendations.length > 0 ? (
+                  <>
+                    <RefreshCw size={15} />
+                    다시 추천받기
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={15} />
+                    AI 추천 받기
+                  </>
+                )}
+              </button>
+            </div>
+
+            {isCertification && (
+              <div className="history-detail-certification-context">
+                <Award size={17} />
+
+                <div>
+                  <strong>
+                    {record.certificationName || '자격증'} ·{' '}
+                    {examTypeLabel}
+                    {record.examDate
+                      ? ` · ${record.examDate} 예정`
+                      : ''}
+                  </strong>
+
+                  <p>
+                    공식 기출문제 데이터베이스와 직접 대조한 결과가
+                    아닙니다. 저장한 내용을 바탕으로 대표적인 시험
+                    영역과 대비 유형을 제안하므로, 정확한 출제 범위는
+                    공식 출제기준과 시험 공고에서 확인해 주세요.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {recommendationStatus === 'idle' && (
+              <p className="history-detail-ai-guide">
+                추천이 필요할 때 버튼을 눌러 주세요.
+                클릭할 때만 AI 요청이 전송됩니다.
+              </p>
+            )}
+
+            {recommendationStatus === 'loading' && (
+              <div
+                className="history-detail-ai-loading"
+                role="status"
+                aria-live="polite"
+              >
+                <span />
+                <span />
+                <span />
+              </div>
+            )}
+
+            {recommendationStatus === 'error' && (
+              <p
+                className="history-detail-ai-feedback is-error"
+                role="alert"
+              >
+                {recommendationMessage}
+              </p>
+            )}
+
+            {recommendationStatus === 'success' && (
+              <>
+                <p className="history-detail-ai-feedback">
+                  {recommendationMessage}
+                </p>
+
+                <div className="history-detail-ai-list">
+                  {recommendations.map(
+                    (recommendation, index) => (
+                      <article
+                        key={`${recommendation.concept}-${index}`}
+                      >
+                        <span>
+                          {String(index + 1).padStart(
+                            2,
+                            '0',
+                          )}
+                        </span>
+
+                        <div>
+                          <h4>
+                            {recommendation.concept}
+                          </h4>
+
+                          {isCertification && (
+                            <div className="history-detail-exam-tags">
+                              {recommendation.examArea && (
+                                <span>
+                                  시험 영역 ·{' '}
+                                  {recommendation.examArea}
+                                </span>
+                              )}
+
+                              {recommendation.questionType && (
+                                <span>
+                                  대비 유형 ·{' '}
+                                  {recommendation.questionType}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          <dl>
+                            <div>
+                              <dt>
+                                {isCertification
+                                  ? '시험 연계 근거'
+                                  : '추천 이유'}
+                              </dt>
+                              <dd>
+                                {recommendation.reason}
+                              </dd>
+                            </div>
+
+                            <div>
+                              <dt>
+                                {isCertification
+                                  ? '추천 시험 대비 행동'
+                                  : '다음 학습 행동'}
+                              </dt>
+                              <dd>
+                                {recommendation.action}
+                              </dd>
+                            </div>
+                          </dl>
+                        </div>
+                      </article>
+                    ),
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </section>
 
         <section className="history-detail-card">

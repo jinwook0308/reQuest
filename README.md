@@ -48,8 +48,10 @@ PostgreSQL에서 `request_db` 데이터베이스를 만든 뒤 다음 SQL을 순
 1. 새 데이터베이스: `backend/database/schema.sql`
 2. 개발용 사용자와 기본 과목: `backend/database/seed.sql`
 3. 기존 MVP 데이터베이스만 해당: `backend/database/review_quests.sql`
+4. 기존 데이터베이스에 AI 학습 추천 저장 기능 추가: `backend/database/study_recommendations.sql`
+5. 기존 데이터베이스에 일반·자격증 학습 기록 구분 추가: `backend/database/study_record_types.sql`
 
-새 데이터베이스에는 `schema.sql`에 복습 문제 테이블까지 포함되어 있으므로 3번 마이그레이션을 다시 실행할 필요가 없습니다.
+새 데이터베이스에는 `schema.sql`에 복습 문제, AI 학습 추천, 학습 기록 유형 컬럼까지 포함되어 있으므로 3번부터 5번까지의 마이그레이션을 다시 실행할 필요가 없습니다.
 
 ### 2. 백엔드 설정과 실행
 

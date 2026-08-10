@@ -4,9 +4,14 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react'
-import { Link } from 'react-router'
+import {
+  Link,
+  useSearchParams,
+} from 'react-router'
 import {
   ArrowLeft,
+  ArrowRight,
+  Award,
   BookOpen,
   CalendarDays,
   CheckCircle2,
@@ -60,14 +65,28 @@ function getToday() {
 }
 
 function RecordsPage() {
+  const [searchParams] = useSearchParams()
+  const requestedSubject = searchParams.get('subject')?.trim() ?? ''
+  const requestedCertificationName =
+    searchParams.get('certificationName')?.trim() ?? ''
+  const recordType =
+    searchParams.get('type') === 'certification'
+      ? 'certification'
+      : 'general'
+  const isCertification =
+    recordType === 'certification'
+
   const [record, setRecord] = useState({
     date: getToday(),
-    subject: '',
+    subject: requestedSubject,
     unit: '',
     minutes: '60',
     learned: '',
     difficult: '',
     keywords: '',
+    certificationName: requestedCertificationName,
+    examType: 'written',
+    examDate: '',
   })
 
   const [understanding, setUnderstanding] =
@@ -152,6 +171,31 @@ function RecordsPage() {
     return () => controller.abort()
   }, [])
 
+  useEffect(() => {
+    setRecord((previousRecord) => ({
+      ...previousRecord,
+      subject: isCertification
+        ? '자격증'
+        : subjects.some(
+              (subject) => subject.name === requestedSubject,
+            )
+          ? requestedSubject
+          : (subjects.find(
+              (subject) => subject.name !== '자격증',
+            )?.name ?? subjects[0]?.name ?? ''),
+      certificationName: isCertification
+        ? requestedCertificationName || previousRecord.certificationName
+        : '',
+    }))
+    setSaveStatus('idle')
+    setSavedRecordId(null)
+  }, [
+    isCertification,
+    requestedCertificationName,
+    requestedSubject,
+    subjects,
+  ])
+
   const handleChange = (
     event: ChangeEvent<
       | HTMLInputElement
@@ -188,6 +232,19 @@ function RecordsPage() {
           },
           body: JSON.stringify({
             ...record,
+            recordType,
+            subject: isCertification
+              ? '자격증'
+              : record.subject,
+            certificationName: isCertification
+              ? record.certificationName
+              : null,
+            examType: isCertification
+              ? record.examType
+              : null,
+            examDate: isCertification
+              ? record.examDate || null
+              : null,
             minutes: Number(record.minutes),
             understanding,
           }),
@@ -242,17 +299,25 @@ function RecordsPage() {
 
           <div>
             <span className="records-eyebrow">
-              STUDY RECORD
+              {isCertification
+                ? 'CERTIFICATION STUDY'
+                : 'STUDY RECORD'}
             </span>
 
-            <h1>오늘 무엇을 공부했나요?</h1>
+            <h1>
+              {isCertification
+                ? '어떤 시험을 준비했나요?'
+                : '오늘 무엇을 공부했나요?'}
+            </h1>
 
             <p>
-              오늘 배운 내용과 어려웠던 부분을
-              기록해 보세요.
+              {isCertification
+                ? '자격증 시험을 준비하며 학습한 영역과 어려웠던 부분을 기록해 보세요.'
+                : '오늘 배운 내용과 어려웠던 부분을 기록해 보세요.'}
               <br />
-              작은 기록이 나만의 복습 여정을
-              만듭니다.
+              {isCertification
+                ? 'AI가 시험 영역과 문제 유형에 맞춰 다음 학습을 추천합니다.'
+                : '작은 기록이 나만의 복습 여정을 만듭니다.'}
             </p>
           </div>
         </header>
@@ -264,15 +329,24 @@ function RecordsPage() {
           <section className="record-card">
             <div className="record-card-heading">
               <span className="record-card-icon">
-                <CalendarDays size={19} />
+                {isCertification ? (
+                  <Award size={19} />
+                ) : (
+                  <CalendarDays size={19} />
+                )}
               </span>
 
               <div>
-                <h2>기본 학습 정보</h2>
+                <h2>
+                  {isCertification
+                    ? '자격증 학습 정보'
+                    : '기본 학습 정보'}
+                </h2>
 
                 <p>
-                  오늘 공부한 과목과 시간을
-                  알려주세요.
+                  {isCertification
+                    ? '준비하는 시험과 학습 시간을 알려주세요.'
+                    : '오늘 공부한 과목과 시간을 알려주세요.'}
                 </p>
               </div>
             </div>
@@ -290,43 +364,91 @@ function RecordsPage() {
                 />
               </label>
 
-              <label className="record-field">
-                <span>과목</span>
+              {isCertification ? (
+                <>
+                  <label className="record-field">
+                    <span>자격증명</span>
 
-                <select
-                  name="subject"
-                  value={record.subject}
-                  onChange={handleChange}
-                  disabled={
-                    isLoadingSubjects ||
-                    subjects.length === 0
-                  }
-                  required
-                >
-                  {isLoadingSubjects ? (
-                    <option value="">
-                      과목을 불러오는 중입니다
-                    </option>
-                  ) : subjects.length === 0 ? (
-                    <option value="">
-                      먼저 과목을 추가해 주세요
-                    </option>
-                  ) : (
-                    subjects.map((subject) => (
-                      <option
-                        value={subject.name}
-                        key={subject.id}
-                      >
-                        {subject.name}
+                    <input
+                      type="text"
+                      name="certificationName"
+                      value={record.certificationName}
+                      onChange={handleChange}
+                      placeholder="예: 정보처리기사"
+                      maxLength={120}
+                      required
+                    />
+                  </label>
+
+                  <label className="record-field">
+                    <span>시험 구분</span>
+
+                    <select
+                      name="examType"
+                      value={record.examType}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="written">필기</option>
+                      <option value="practical">실기</option>
+                    </select>
+                  </label>
+
+                  <label className="record-field">
+                    <span>시험 예정일 (선택)</span>
+
+                    <input
+                      type="date"
+                      name="examDate"
+                      value={record.examDate}
+                      onChange={handleChange}
+                    />
+                  </label>
+                </>
+              ) : (
+                <label className="record-field">
+                  <span>과목</span>
+
+                  <select
+                    name="subject"
+                    value={record.subject}
+                    onChange={handleChange}
+                    disabled={
+                      isLoadingSubjects ||
+                      subjects.length === 0
+                    }
+                    required
+                  >
+                    {isLoadingSubjects ? (
+                      <option value="">
+                        과목을 불러오는 중입니다
                       </option>
-                    ))
-                  )}
-                </select>
+                    ) : subjects.length === 0 ? (
+                      <option value="">
+                        먼저 과목을 추가해 주세요
+                      </option>
+                    ) : (
+                      subjects
+                        .filter(
+                          (subject) =>
+                            subject.name !== '자격증',
+                        )
+                        .map((subject) => (
+                          <option
+                            value={subject.name}
+                            key={subject.id}
+                          >
+                            {subject.name}
+                          </option>
+                        ))
+                    )}
+                  </select>
 
-                {subjectLoadError ? (
-                  <small>{subjectLoadError}</small>
-                ) : null}
-              </label>
+                  {subjectLoadError ? (
+                    <small>{subjectLoadError}</small>
+                  ) : null}
+                </label>
+              )}
 
               <label className="record-field record-field-wide">
                 <span>학습 단원</span>
@@ -480,7 +602,9 @@ function RecordsPage() {
 
               <div>
                 <strong>
-                  학습 기록이 저장되었습니다.
+                  {isCertification
+                    ? '자격증 학습 기록이 저장되었습니다.'
+                    : '학습 기록이 저장되었습니다.'}
                 </strong>
 
                 <span>
@@ -504,9 +628,10 @@ function RecordsPage() {
               <>
                 <Link
                   className="record-cancel-button"
-                  to="/"
+                  to={`/history/${savedRecordId}`}
                 >
-                  이번 주로 돌아가기
+                  저장한 기록 상세보기
+                  <ArrowRight size={17} />
                 </Link>
 
                 <Link
@@ -514,7 +639,7 @@ function RecordsPage() {
                   to={`/wrong-notes/new?studyRecordId=${savedRecordId}`}
                 >
                   <FileQuestion size={18} />
-                  이번 학습의 오답 등록하기
+                  오답 노트 만들기
                 </Link>
               </>
             ) : (
