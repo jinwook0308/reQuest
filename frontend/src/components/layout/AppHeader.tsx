@@ -9,11 +9,9 @@ import {
   useNavigate,
 } from 'react-router'
 import {
-  Award,
   Bell,
   BookOpen,
   ChevronDown,
-  ClipboardPenLine,
   LogOut,
   Menu,
   Search,
@@ -85,21 +83,18 @@ function AppHeader() {
   const { user, logout } = useAuth()
 
   const profileAreaRef = useRef<HTMLDivElement>(null)
-  const studyMenuRef = useRef<HTMLDivElement>(null)
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isStudyMenuOpen, setIsStudyMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   useEffect(() => {
     setIsMenuOpen(false)
-    setIsStudyMenuOpen(false)
     setIsProfileOpen(false)
   }, [location.pathname, location.search])
 
   useEffect(() => {
-    if (!isProfileOpen && !isStudyMenuOpen) {
+    if (!isProfileOpen) {
       return
     }
 
@@ -114,19 +109,11 @@ function AppHeader() {
         setIsProfileOpen(false)
       }
 
-      if (
-        isStudyMenuOpen &&
-        studyMenuRef.current &&
-        !studyMenuRef.current.contains(target)
-      ) {
-        setIsStudyMenuOpen(false)
-      }
     }
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsProfileOpen(false)
-        setIsStudyMenuOpen(false)
       }
     }
 
@@ -137,7 +124,7 @@ function AppHeader() {
       document.removeEventListener('mousedown', handleOutsideClick)
       document.removeEventListener('keydown', handleEscape)
     }
-  }, [isProfileOpen, isStudyMenuOpen])
+  }, [isProfileOpen])
 
   const handleLogout = async () => {
     if (isLoggingOut) {
@@ -172,7 +159,6 @@ function AppHeader() {
         aria-label="reQuest 홈"
         onClick={() => {
           setIsMenuOpen(false)
-          setIsStudyMenuOpen(false)
           setIsProfileOpen(false)
         }}
       >
@@ -191,7 +177,6 @@ function AppHeader() {
         aria-controls="app-navigation"
         onClick={() => {
           setIsMenuOpen((previous) => !previous)
-          setIsStudyMenuOpen(false)
           setIsProfileOpen(false)
         }}
       >
@@ -211,74 +196,6 @@ function AppHeader() {
           const className = `app-header-navigation-item ${
             isActive ? 'is-active' : ''
           }`
-
-          if (item.label === '학습 기록') {
-            return (
-              <div
-                className="app-header-study-menu-area"
-                ref={studyMenuRef}
-                key={item.label}
-              >
-                <button
-                  type="button"
-                  className={`${className} app-header-study-trigger`}
-                  aria-expanded={isStudyMenuOpen}
-                  aria-controls="app-header-study-menu"
-                  onClick={() => {
-                    setIsStudyMenuOpen((previous) => !previous)
-                    setIsProfileOpen(false)
-                  }}
-                >
-                  {item.label}
-                  <ChevronDown
-                    size={14}
-                    className={isStudyMenuOpen ? 'is-open' : ''}
-                  />
-                </button>
-
-                {isStudyMenuOpen && (
-                  <div
-                    id="app-header-study-menu"
-                    className="app-header-study-menu"
-                  >
-                    <div className="app-header-study-menu-intro">
-                      <span>LEARNING RECORD</span>
-                      <strong>어떤 공부를<br /> 기록할까요?</strong>
-                      <p>
-                        공부 목적에 맞는 기록 방식을 선택하면 AI도
-                        서로 다른 기준으로 학습 내용을 분석합니다.
-                      </p>
-                    </div>
-
-                    <div className="app-header-study-menu-links">
-                      <Link to="/history?type=general">
-                        <span className="is-general">
-                          <ClipboardPenLine size={21} />
-                        </span>
-                        <div>
-                          <strong>일반 학습 기록</strong>
-                          <p>학교 과목과 자유 학습 내용을 기록해요.</p>
-                        </div>
-                        <span className="app-header-study-menu-arrow">→</span>
-                      </Link>
-
-                      <Link to="/history?type=certification">
-                        <span className="is-certification">
-                          <Award size={21} />
-                        </span>
-                        <div>
-                          <strong>자격증 공부 기록</strong>
-                          <p>필기·실기와 시험 일정을 함께 기록해요.</p>
-                        </div>
-                        <span className="app-header-study-menu-arrow">→</span>
-                      </Link>
-
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          }
 
           if (item.path) {
             return (
@@ -338,7 +255,6 @@ function AppHeader() {
             aria-controls="app-header-profile-menu"
             onClick={() => {
               setIsProfileOpen((previous) => !previous)
-              setIsStudyMenuOpen(false)
             }}
           >
             <span className="app-header-profile-image">

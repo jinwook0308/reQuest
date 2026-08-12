@@ -84,6 +84,13 @@ const AiReviewPage = lazy(
     ),
 )
 
+const AiReviewChatPage = lazy(
+  () =>
+    import(
+      './pages/ai-chat/AiReviewChatPage'
+    ),
+)
+
 const WrongNotesPage = lazy(
   () =>
     import(
@@ -103,6 +110,14 @@ const WrongNoteDetailPage = lazy(
     import(
       './pages/wrong-notes/WrongNoteDetailPage'
     ),
+)
+
+const StudyFocusSetupPage = lazy(
+  () => import('./pages/focus/StudyFocusSetupPage'),
+)
+
+const StudyTimerPage = lazy(
+  () => import('./pages/focus/StudyTimerPage'),
 )
 
 function PageLoading() {
@@ -151,7 +166,9 @@ function ProtectedLayout() {
 
   return (
     <>
-      <AppHeader />
+      {!location.pathname.startsWith('/focus/session/') ? (
+        <AppHeader />
+      ) : null}
       <Outlet />
     </>
   )
@@ -219,6 +236,11 @@ function App() {
           />
 
           <Route
+            path="/ai-review/chat"
+            element={<AiReviewChatPage />}
+          />
+
+          <Route
             path="/quest-review/wrong-note/:wrongNoteId"
             element={
               <QuestReviewPage />
@@ -247,6 +269,16 @@ function App() {
             element={
               <StatisticsPage />
             }
+          />
+
+          <Route
+            path="/focus"
+            element={<StudyFocusSetupPage />}
+          />
+
+          <Route
+            path="/focus/session/:sessionId"
+            element={<StudyTimerPage />}
           />
         </Route>
 

@@ -69,6 +69,11 @@ function RecordsPage() {
   const requestedSubject = searchParams.get('subject')?.trim() ?? ''
   const requestedCertificationName =
     searchParams.get('certificationName')?.trim() ?? ''
+  const requestedFocusUnit =
+    searchParams.get('focusUnit')?.trim() ?? ''
+  const requestedFocusMinutes =
+    searchParams.get('focusMinutes')?.trim() ?? ''
+  const parsedFocusMinutes = Number(requestedFocusMinutes)
   const recordType =
     searchParams.get('type') === 'certification'
       ? 'certification'
@@ -79,8 +84,11 @@ function RecordsPage() {
   const [record, setRecord] = useState({
     date: getToday(),
     subject: requestedSubject,
-    unit: '',
-    minutes: '60',
+    unit: requestedFocusUnit,
+    minutes:
+      Number.isFinite(parsedFocusMinutes) && parsedFocusMinutes > 0
+        ? String(Math.round(parsedFocusMinutes))
+        : '60',
     learned: '',
     difficult: '',
     keywords: '',

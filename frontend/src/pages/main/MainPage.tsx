@@ -21,6 +21,7 @@ import {
   Leaf,
   Link2,
   PieChart,
+  Play,
   Plus,
   Sparkles,
   Star,
@@ -29,8 +30,6 @@ import {
 } from 'lucide-react'
 
 import { apiFetch } from '../../lib/api'
-import './MainPage.css'
-
 import './MainPage.css'
 
 
@@ -467,14 +466,25 @@ if (selectedFile.size > 10 * 1024 * 1024) {
             </button>
           </div>
 
-          <button
-            type="button"
-            className="start-study-button"
-            onClick={() => navigate('/records')}
-          >
-            <Plus size={18} />
-            오늘의 학습 기록 시작
-          </button>
+          <div className="week-toolbar-actions">
+            <button
+              type="button"
+              className="focus-study-button"
+              onClick={() => navigate('/focus')}
+            >
+              <Play size={17} fill="currentColor" />
+              공부 시작
+            </button>
+
+            <button
+              type="button"
+              className="start-study-button"
+              onClick={() => navigate('/records')}
+            >
+              <Plus size={18} />
+              오늘의 학습 기록 시작
+            </button>
+          </div>
         </section>
 
         <div className="dashboard-grid">
