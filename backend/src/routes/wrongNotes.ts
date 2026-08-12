@@ -187,6 +187,16 @@ wrongNotesRouter.get(
                 subjects.name,
                 '기타'
               ) AS subject,
+              COALESCE(
+                study_records.record_type,
+                CASE
+                  WHEN subjects.name = '자격증'
+                    THEN 'certification'
+                  ELSE 'general'
+                END
+              ) AS "recordType",
+              study_records.certification_name
+                AS "certificationName",
               wrong_notes.unit,
               wrong_notes.mistake_question
                 AS "mistakeQuestion",
@@ -211,6 +221,12 @@ wrongNotesRouter.get(
             LEFT JOIN subjects
               ON subjects.id =
                 wrong_notes.subject_id
+
+            LEFT JOIN study_records
+              ON study_records.id =
+                wrong_notes.study_record_id
+              AND study_records.user_id =
+                wrong_notes.user_id
 
             WHERE
               wrong_notes.user_id = $1
@@ -323,6 +339,16 @@ wrongNotesRouter.get(
                 subjects.name,
                 '기타'
               ) AS subject,
+              COALESCE(
+                study_records.record_type,
+                CASE
+                  WHEN subjects.name = '자격증'
+                    THEN 'certification'
+                  ELSE 'general'
+                END
+              ) AS "recordType",
+              study_records.certification_name
+                AS "certificationName",
               wrong_notes.unit,
               wrong_notes.mistake_question
                 AS "mistakeQuestion",
@@ -347,6 +373,12 @@ wrongNotesRouter.get(
             LEFT JOIN subjects
               ON subjects.id =
                 wrong_notes.subject_id
+
+            LEFT JOIN study_records
+              ON study_records.id =
+                wrong_notes.study_record_id
+              AND study_records.user_id =
+                wrong_notes.user_id
 
             WHERE
               wrong_notes.id = $1

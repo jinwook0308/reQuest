@@ -13,6 +13,7 @@ import multer from 'multer'
 
 import { CORS_ORIGIN } from './config/app'
 import { pool } from './config/db'
+import aiConversationsRouter from './routes/aiConversations'
 import authRouter from './routes/auth'
 import reviewQuestDraftsRouter from './routes/reviewQuestDrafts'
 import reviewQuestsRouter from './routes/reviewQuests'
@@ -20,6 +21,7 @@ import statisticsRouter from './routes/statistics'
 import studyRecordsRouter from './routes/studyRecords'
 import studyRecommendationsRouter from './routes/studyRecommendations'
 import subjectsRouter from './routes/subjects'
+import studySessionsRouter from './routes/studySessions'
 import wrongNotesRouter from './routes/wrongNotes'
 
 dotenv.config()
@@ -64,6 +66,11 @@ app.use(
 )
 
 app.use(
+  '/api/ai-conversations',
+  aiConversationsRouter,
+)
+
+app.use(
   '/api/subjects',
   subjectsRouter,
 )
@@ -76,6 +83,11 @@ app.use(
 app.use(
   '/api/study-recommendations',
   studyRecommendationsRouter,
+)
+
+app.use(
+  '/api/study-sessions',
+  studySessionsRouter,
 )
 
 app.use(

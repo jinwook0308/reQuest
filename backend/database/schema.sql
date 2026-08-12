@@ -92,6 +92,47 @@ CREATE TABLE IF NOT EXISTS study_records (
         )
 );
 
+-- 학습 집중 세션
+-- 실제 학습 기록과 별도로 타이머의 진행 상태와 집중 지표만 저장합니다.
+CREATE TABLE IF NOT EXISTS study_sessions (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+
+    record_type VARCHAR(20) NOT NULL DEFAULT 'general',
+    mode VARCHAR(20) NOT NULL,
+    subject VARCHAR(120) NOT NULL,
+    unit VARCHAR(150) NOT NULL,
+    target_minutes INTEGER NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'running',
+
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_resumed_at TIMESTAMPTZ,
+    paused_at TIMESTAMPTZ,
+    ended_at TIMESTAMPTZ,
+    focused_seconds INTEGER NOT NULL DEFAULT 0,
+    paused_seconds INTEGER NOT NULL DEFAULT 0,
+    interruption_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT study_sessions_record_type_check
+        CHECK (record_type IN ('general', 'certification')),
+    CONSTRAINT study_sessions_mode_check
+        CHECK (mode IN ('focus', 'practice')),
+    CONSTRAINT study_sessions_status_check
+        CHECK (status IN ('running', 'paused', 'completed', 'cancelled')),
+    CONSTRAINT study_sessions_target_minutes_check
+        CHECK (target_minutes BETWEEN 1 AND 1440),
+    CONSTRAINT study_sessions_seconds_check
+        CHECK (
+            focused_seconds >= 0
+            AND paused_seconds >= 0
+            AND interruption_count >= 0
+        )
+);
+
 -- 4. 학습 기록별 AI 맞춤 추천
 CREATE TABLE IF NOT EXISTS study_recommendation_sets (
     id BIGSERIAL PRIMARY KEY,
@@ -220,6 +261,45 @@ CREATE TABLE IF NOT EXISTS wrong_notes (
         )
 );
 
+-- 8. 과목별 AI 복습 대화
+CREATE TABLE IF NOT EXISTS ai_conversations (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+    collection_name VARCHAR(120) NOT NULL,
+    study_mode VARCHAR(20) NOT NULL,
+    title VARCHAR(120) NOT NULL DEFAULT '새 대화',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT ai_conversations_study_mode_check
+        CHECK (study_mode IN ('general', 'certification'))
+);
+
+CREATE TABLE IF NOT EXISTS ai_messages (
+    id BIGSERIAL PRIMARY KEY,
+    conversation_id BIGINT NOT NULL
+        REFERENCES ai_conversations(id)
+        ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT ai_messages_role_check
+        CHECK (role IN ('user', 'assistant'))
+);
+
+CREATE TABLE IF NOT EXISTS ai_message_sources (
+    message_id BIGINT NOT NULL
+        REFERENCES ai_messages(id)
+        ON DELETE CASCADE,
+    study_record_id BIGINT NOT NULL
+        REFERENCES study_records(id)
+        ON DELETE CASCADE,
+    PRIMARY KEY (message_id, study_record_id)
+);
+
 -- 조회 속도를 높이는 인덱스
 CREATE INDEX IF NOT EXISTS idx_subjects_user_id
     ON subjects(user_id);
@@ -229,6 +309,16 @@ CREATE INDEX IF NOT EXISTS idx_study_records_user_date
 
 CREATE INDEX IF NOT EXISTS idx_study_records_subject_id
     ON study_records(subject_id);
+
+CREATE INDEX IF NOT EXISTS idx_study_sessions_user_created
+    ON study_sessions(user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_study_sessions_user_status
+    ON study_sessions(user_id, status);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_study_sessions_one_active_per_user
+    ON study_sessions(user_id)
+    WHERE status IN ('running', 'paused');
 
 CREATE INDEX IF NOT EXISTS idx_study_recommendation_sets_record
     ON study_recommendation_sets(user_id, study_record_id);
@@ -252,5 +342,16 @@ CREATE INDEX IF NOT EXISTS idx_quiz_attempts_source
         source_id,
         completed_at DESC
     );
+
+CREATE INDEX IF NOT EXISTS idx_ai_conversations_user_collection
+    ON ai_conversations(
+        user_id,
+        study_mode,
+        collection_name,
+        updated_at DESC
+    );
+
+CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation
+    ON ai_messages(conversation_id, created_at);
 
 COMMIT;
