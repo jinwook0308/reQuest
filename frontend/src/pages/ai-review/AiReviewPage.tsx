@@ -5,7 +5,7 @@ import {
   useState,
   type FormEvent,
 } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import {
   ArrowLeft,
   BookOpen,
@@ -32,6 +32,8 @@ type StudyRecord = {
   id: number
   date: string
   subject: string
+  recordType?: 'general' | 'certification' | null
+  certificationName?: string | null
   unit: string
   learned: string
   difficult: string
@@ -68,8 +70,30 @@ function formatRecordDate(dateText: string) {
   }).format(date)
 }
 
+type StudyMode = 'general' | 'certification'
+
+function getRecordMode(record: StudyRecord): StudyMode {
+  return record.recordType === 'certification'
+    ? 'certification'
+    : 'general'
+}
+
+function getRecordCollectionName(record: StudyRecord) {
+  if (getRecordMode(record) === 'certification') {
+    return record.certificationName?.trim() || '자격증'
+  }
+
+  return record.subject
+}
+
 function AiReviewPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const studyMode: StudyMode =
+    searchParams.get('type') === 'certification'
+      ? 'certification'
+      : 'general'
+  const recordsPath = `/records?type=${studyMode}`
 
   const [subjects, setSubjects] = useState<
     Subject[]
@@ -221,25 +245,45 @@ function AiReviewPage() {
     }
   }, [])
 
-  const visibleSubjects = useMemo(
+  useEffect(() => {
+    setSelectedSubject(null)
+    setOpeningSubjectId(null)
+  }, [studyMode])
+
+  const modeRecords = useMemo(
     () =>
-      subjects.filter(
-        (subject) => subject.name !== '기타',
+      records.filter(
+        (record) => getRecordMode(record) === studyMode,
       ),
-    [subjects],
+    [records, studyMode],
   )
+
+  const visibleSubjects = useMemo(() => {
+    if (studyMode === 'certification') {
+      return Array.from(
+        new Set(modeRecords.map(getRecordCollectionName)),
+      ).map((name, index) => ({
+        id: `certification-${index}-${name}`,
+        name,
+      }))
+    }
+
+    return subjects.filter(
+      (subject) =>
+        subject.name !== '기타' && subject.name !== '자격증',
+    )
+  }, [modeRecords, studyMode, subjects])
 
   const selectedRecords = useMemo(() => {
     if (!selectedSubject) {
       return []
     }
 
-    return records.filter(
+    return modeRecords.filter(
       (record) =>
-        record.subject ===
-        selectedSubject.name,
+        getRecordCollectionName(record) === selectedSubject.name,
     )
-  }, [records, selectedSubject])
+  }, [modeRecords, selectedSubject])
 
   const averageUnderstanding =
     selectedRecords.length === 0
@@ -261,12 +305,14 @@ function AiReviewPage() {
 
     openTimerRef.current =
       window.setTimeout(() => {
-        setSelectedSubject(subject)
         setOpeningSubjectId(null)
-        window.scrollTo({
-          top: 0,
-          behavior: 'smooth',
-        })
+        navigate(
+          `/ai-review/chat?type=${encodeURIComponent(
+            studyMode,
+          )}&subject=${encodeURIComponent(
+            subject.name,
+          )}`,
+        )
       }, 560)
   }
 
@@ -377,7 +423,9 @@ function AiReviewPage() {
             }
           >
             <ArrowLeft size={18} />
-            과목 노트 목록
+            {studyMode === 'certification'
+              ? '자격증 노트 목록'
+              : '과목 노트 목록'}
           </button>
         </div>
 
@@ -456,7 +504,7 @@ function AiReviewPage() {
               <button
                 type="button"
                 onClick={() =>
-                  navigate('/records')
+                  navigate(recordsPath)
                 }
               >
                 <Plus size={17} />
@@ -482,7 +530,7 @@ function AiReviewPage() {
                 <button
                   type="button"
                   onClick={() =>
-                    navigate('/records')
+                    navigate(recordsPath)
                   }
                 >
                   학습 기록 작성하기
@@ -564,19 +612,41 @@ function AiReviewPage() {
 
   return (
     <main className="ai-review-page">
-      <section className="ai-review-hero">
-        <span className="ai-review-eyebrow">
-          AI REVIEW LIBRARY
+      <header className="archive-page-heading">
+        <span className="archive-page-heading-icon" aria-hidden="true">
+          <Sparkles size={27} />
         </span>
+        <div className="archive-page-heading-copy">
+          <span className="archive-page-eyebrow">AI REVIEW LIBRARY</span>
+          <h1>
+            {studyMode === 'certification'
+              ? '나의 자격증 AI 복습 노트'
+              : '나의 일반 학습 AI 복습 노트'}
+          </h1>
+          <p>
+            {studyMode === 'certification'
+              ? '자격증별 복습 노트를 열어 시험 대비 기록, 취약 개념과 AI 추천 문제를 확인해 보세요.'
+              : '과목별 복습 노트를 열어 학습 기록, 취약 개념과 AI 추천 문제를 확인해 보세요.'}
+          </p>
+        </div>
+      </header>
 
-        <h1>나의 AI 복습 노트</h1>
-
-        <p>
-          과목별 복습 노트를 열어 학습 기록,
-          취약 개념과 AI 추천 문제를 확인해
-          보세요.
-        </p>
-      </section>
+      <nav className="study-type-switcher" aria-label="AI 복습 유형">
+        <button
+          type="button"
+          className={studyMode === 'general' ? 'is-active' : ''}
+          onClick={() => setSearchParams({ type: 'general' })}
+        >
+          일반 학습
+        </button>
+        <button
+          type="button"
+          className={studyMode === 'certification' ? 'is-active' : ''}
+          onClick={() => setSearchParams({ type: 'certification' })}
+        >
+          자격증 공부
+        </button>
+      </nav>
 
       {isLoading ? (
         <div className="review-page-message">
@@ -595,13 +665,21 @@ function AiReviewPage() {
         <section className="review-library">
           <div className="review-library-heading">
             <div>
-              <span>MY SUBJECTS</span>
-              <h2>과목별 복습 노트</h2>
+              <span>
+                {studyMode === 'certification'
+                  ? 'MY CERTIFICATES'
+                  : 'MY SUBJECTS'}
+              </span>
+              <h2>
+                {studyMode === 'certification'
+                  ? '자격증별 복습 노트'
+                  : '과목별 복습 노트'}
+              </h2>
             </div>
 
             <p>
               노트를 선택하면 표지가 열리면서
-              해당 과목의 복습 내용이
+              해당 {studyMode === 'certification' ? '자격증' : '과목'}의 복습 내용이
               나타납니다.
             </p>
           </div>
@@ -610,10 +688,9 @@ function AiReviewPage() {
             {visibleSubjects.map(
               (subject) => {
                 const recordCount =
-                  records.filter(
+                  modeRecords.filter(
                     (record) =>
-                      record.subject ===
-                      subject.name,
+                      getRecordCollectionName(record) === subject.name,
                   ).length
 
                 const isOpening =
@@ -675,7 +752,9 @@ function AiReviewPage() {
               type="button"
               className="review-book add-subject-book"
               onClick={
-                handleOpenCreateModal
+                studyMode === 'certification'
+                  ? () => navigate('/records?type=certification')
+                  : handleOpenCreateModal
               }
             >
               <span className="review-book-pages" />
@@ -688,12 +767,20 @@ function AiReviewPage() {
                 </span>
 
                 <span className="review-book-label">
-                  <small>NEW SUBJECT</small>
+                  <small>
+                    {studyMode === 'certification'
+                      ? 'NEW CERTIFICATE'
+                      : 'NEW SUBJECT'}
+                  </small>
 
-                  <strong>기타</strong>
+                  <strong>
+                    {studyMode === 'certification' ? '자격증' : '기타'}
+                  </strong>
 
                   <span>
-                    새 과목 노트 만들기
+                    {studyMode === 'certification'
+                      ? '자격증 학습 기록 추가'
+                      : '새 과목 노트 만들기'}
                   </span>
                 </span>
               </span>

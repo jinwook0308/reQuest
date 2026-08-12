@@ -3,6 +3,60 @@
 /* ==========================================
    1. 루트 및 페이지 기본 설정 (Root & Page Base)
    ================================---------- */
+/* Archive page alignment: matches the Statistics page content bounds. */
+#root main.history-page.ai-review-page {
+  box-sizing: border-box !important;
+  padding: 78px clamp(24px, 3vw, 56px) 100px !important;
+}
+
+#root main.history-page.ai-review-page > header.archive-page-heading {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 0 36px !important;
+}
+
+#root main.history-page.ai-review-page > .study-type-switcher {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  width: 430px !important;
+  max-width: calc(100vw - 48px) !important;
+  margin: -20px 0 34px !important;
+  align-self: flex-start !important;
+  flex: none !important;
+}
+
+#root main.history-page.ai-review-page > .study-type-switcher > button {
+  width: 100% !important;
+  min-width: 0 !important;
+  flex: none !important;
+}
+
+html body main.history-page.ai-review-page {
+  box-sizing: border-box;
+  padding: 78px 24px 100px !important;
+}
+
+html body main.history-page.ai-review-page > header.archive-page-heading {
+  width: min(100%, 1150px) !important;
+  margin: 0 auto 36px !important;
+}
+
+html body main.history-page.ai-review-page > .study-type-switcher {
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin: -20px 0 34px max(0px, calc((100% - 1150px) / 2)) !important;
+}
+
+@media (max-width: 720px) {
+  html body main.history-page.ai-review-page {
+    padding: 36px 16px 72px !important;
+  }
+
+  html body main.history-page.ai-review-page > .study-type-switcher {
+    margin: -18px 0 26px !important;
+  }
+}
+
 .history-page {
   --history-background: #fbfaf7;
   --history-surface: #ffffff;
@@ -959,5 +1013,103 @@ button.history-date-filter {
 
   .history-record-actions {
     align-self: flex-end;
+  }
+}
+/* 통계 페이지와 같은 좌우 끝선 및 공통 상단 여백 */
+.history-page.ai-review-page {
+  box-sizing: border-box;
+  padding-top: 78px !important;
+  padding-right: 24px !important;
+  padding-left: 24px !important;
+}
+
+.history-page.ai-review-page > .archive-page-heading {
+  width: min(100%, 1150px) !important;
+  margin: 0 auto 36px !important;
+}
+
+.history-page.ai-review-page > .study-type-switcher {
+  display: flex;
+  width: min(100%, 1150px);
+  margin-right: auto !important;
+  margin-left: auto !important;
+}
+
+@media (max-width: 720px) {
+  .history-page.ai-review-page {
+    padding-top: 36px !important;
+    padding-right: 16px !important;
+    padding-left: 16px !important;
+  }
+}
+/* 통계 페이지와 동일한 콘텐츠 끝선 및 아카이브 공통 상단 여백 */
+html body main.history-page.ai-review-page {
+  box-sizing: border-box;
+  padding-top: 78px !important;
+  padding-right: 24px !important;
+  padding-left: 24px !important;
+}
+
+html body main.history-page.ai-review-page > header.archive-page-heading,
+html body main.history-page.ai-review-page > .study-type-switcher {
+  width: min(100%, 1150px) !important;
+  margin-right: auto !important;
+  margin-left: auto !important;
+}
+
+html body main.history-page.ai-review-page > header.archive-page-heading {
+  margin-top: 0 !important;
+  margin-bottom: 36px !important;
+}
+
+html body main.history-page.ai-review-page > .study-type-switcher {
+  margin-top: -20px !important;
+  margin-bottom: 34px !important;
+}
+
+@media (max-width: 720px) {
+  html body main.history-page.ai-review-page {
+    padding-top: 36px !important;
+    padding-right: 16px !important;
+    padding-left: 16px !important;
+  }
+}
+/* Keep the archive heading on the same wide grid as StatisticsPage. */
+html body main.history-page.ai-review-page {
+  padding-inline: clamp(24px, 3vw, 56px) !important;
+}
+
+html body main.history-page.ai-review-page > header.archive-page-heading {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 0 36px !important;
+}
+
+/* The learning-type selector is a compact two-option control, not a full row. */
+html body main.history-page.ai-review-page > .study-type-switcher {
+  box-sizing: border-box;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  width: min(100%, 430px) !important;
+  max-width: 430px !important;
+  margin: -20px 0 34px !important;
+  align-self: flex-start !important;
+  flex: none !important;
+}
+
+html body main.history-page.ai-review-page > .study-type-switcher > button {
+  width: 100% !important;
+  min-width: 0 !important;
+  flex: none !important;
+}
+
+@media (max-width: 640px) {
+  html body main.history-page.ai-review-page {
+    padding-inline: 16px !important;
+  }
+
+  html body main.history-page.ai-review-page > .study-type-switcher {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 }

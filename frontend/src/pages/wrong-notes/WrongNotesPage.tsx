@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import {
   AlertCircle,
   ArrowLeft,
@@ -35,6 +35,8 @@ type WrongNoteApiItem = {
   studyRecordId: number | string | null
   date: string
   subject: string
+  recordType?: 'general' | 'certification' | null
+  certificationName?: string | null
   unit: string
   mistakeQuestion: string
   wrongAnswer: string
@@ -126,7 +128,29 @@ function formatWrongNoteDate(date: string) {
   })
 }
 
+type StudyMode = 'general' | 'certification'
+
+function getWrongNoteMode(wrongNote: SavedWrongNote): StudyMode {
+  return wrongNote.recordType === 'certification'
+    ? 'certification'
+    : 'general'
+}
+
+function getWrongNoteCollectionName(wrongNote: SavedWrongNote) {
+  if (getWrongNoteMode(wrongNote) === 'certification') {
+    return wrongNote.certificationName?.trim() || '자격증'
+  }
+
+  return wrongNote.subject
+}
+
 function WrongNotesPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const studyMode: StudyMode =
+    searchParams.get('type') === 'certification'
+      ? 'certification'
+      : 'general'
+  const createWrongNotePath = `/wrong-notes/new?type=${studyMode}`
   const [wrongNotes, setWrongNotes] = useState<SavedWrongNote[]>([])
   const [availableSubjects, setAvailableSubjects] = useState<
     Array<{ id: string; name: string }>
@@ -211,11 +235,38 @@ function WrongNotesPage() {
     return () => controller.abort()
   }, [])
 
-  const subjectBookItems = useMemo<SubjectBookItem[]>(
+  useEffect(() => {
+    setSelectedSubject(null)
+    setSearchText('')
+    setStatusFilter('전체')
+  }, [studyMode])
+
+  const modeWrongNotes = useMemo(
     () =>
-      availableSubjects.map((subject) => {
-        const subjectWrongNotes = wrongNotes.filter(
-          (wrongNote) => wrongNote.subject === subject.name,
+      wrongNotes.filter(
+        (wrongNote) => getWrongNoteMode(wrongNote) === studyMode,
+      ),
+    [studyMode, wrongNotes],
+  )
+
+  const subjectBookItems = useMemo<SubjectBookItem[]>(
+    () => {
+      const collections =
+        studyMode === 'certification'
+          ? Array.from(
+              new Set(modeWrongNotes.map(getWrongNoteCollectionName)),
+            ).map((name, index) => ({
+              id: `certification-${index}-${name}`,
+              name,
+            }))
+          : availableSubjects.filter(
+              (subject) => subject.name !== '자격증',
+            )
+
+      return collections.map((subject) => {
+        const subjectWrongNotes = modeWrongNotes.filter(
+          (wrongNote) =>
+            getWrongNoteCollectionName(wrongNote) === subject.name,
         )
         const retryCount = subjectWrongNotes.filter(
           (wrongNote) => wrongNote.questStatus === 'retry-required',
@@ -224,11 +275,15 @@ function WrongNotesPage() {
         return {
           id: subject.id,
           subject: subject.name,
-          eyebrow: 'WRONG NOTE',
+          eyebrow:
+            studyMode === 'certification'
+              ? 'CERTIFICATION WRONG NOTE'
+              : 'WRONG NOTE',
           meta: `${subjectWrongNotes.length}개 오답 · 재도전 ${retryCount}개`,
         }
-      }),
-    [availableSubjects, wrongNotes],
+      })
+    },
+    [availableSubjects, modeWrongNotes, studyMode],
   )
 
   const selectedSubjectWrongNotes = useMemo(() => {
@@ -236,10 +291,11 @@ function WrongNotesPage() {
       return []
     }
 
-    return wrongNotes.filter(
-      (wrongNote) => wrongNote.subject === selectedSubject,
+    return modeWrongNotes.filter(
+      (wrongNote) =>
+        getWrongNoteCollectionName(wrongNote) === selectedSubject,
     )
-  }, [selectedSubject, wrongNotes])
+  }, [selectedSubject, modeWrongNotes])
 
   const filteredWrongNotes = useMemo(() => {
     const normalizedSearchText = searchText.trim().toLowerCase()
@@ -342,7 +398,9 @@ function WrongNotesPage() {
             onClick={handleCloseSubjectBook}
           >
             <ArrowLeft size={18} />
-            과목 노트 목록
+            {studyMode === 'certification'
+              ? '자격증 노트 목록'
+              : '과목 노트 목록'}
           </button>
         </div>
 
@@ -391,7 +449,7 @@ function WrongNotesPage() {
 
               <Link
                 className="wrong-notes-note-create-button"
-                to="/wrong-notes/new"
+                to={createWrongNotePath}
               >
                 <Plus size={17} />
                 새 오답 등록
@@ -429,7 +487,7 @@ function WrongNotesPage() {
                 <p>먼저 {selectedSubject} 오답을 기록해 주세요.</p>
                 <Link
                   className="wrong-notes-empty-create-button"
-                  to="/wrong-notes/new"
+                  to={createWrongNotePath}
                 >
                   첫 오답 등록하기
                 </Link>
@@ -554,14 +612,41 @@ function WrongNotesPage() {
 
   return (
     <main className="wrong-notes-page ai-review-page">
-      <section className="ai-review-hero">
-        <span className="ai-review-eyebrow">WRONG ANSWER ARCHIVE</span>
-        <h1>나의 오답 노트</h1>
-        <p>
-          과목별 오답 노트를 열어 틀린 문제와 복습 상태를 한눈에
-          확인해 보세요.
-        </p>
-      </section>
+      <header className="archive-page-heading">
+        <span className="archive-page-heading-icon" aria-hidden="true">
+          <FileQuestion size={27} />
+        </span>
+        <div className="archive-page-heading-copy">
+          <span className="archive-page-eyebrow">WRONG ANSWER ARCHIVE</span>
+          <h1>
+            {studyMode === 'certification'
+              ? '나의 자격증 오답 노트'
+              : '나의 일반 학습 오답 노트'}
+          </h1>
+          <p>
+            {studyMode === 'certification'
+              ? '자격증별 오답 노트를 열어 시험에서 놓친 문제와 복습 상태를 확인해 보세요.'
+              : '과목별 오답 노트를 열어 틀린 문제와 복습 상태를 한눈에 확인해 보세요.'}
+          </p>
+        </div>
+      </header>
+
+      <nav className="study-type-switcher" aria-label="오답노트 유형">
+        <button
+          type="button"
+          className={studyMode === 'general' ? 'is-active' : ''}
+          onClick={() => setSearchParams({ type: 'general' })}
+        >
+          일반 학습
+        </button>
+        <button
+          type="button"
+          className={studyMode === 'certification' ? 'is-active' : ''}
+          onClick={() => setSearchParams({ type: 'certification' })}
+        >
+          자격증 공부
+        </button>
+      </nav>
 
       {isLoading ? (
         <div className="review-page-message">
@@ -576,12 +661,21 @@ function WrongNotesPage() {
         <section className="review-library">
           <div className="review-library-heading">
             <div>
-              <span>MY SUBJECTS</span>
-              <h2>과목별 오답 노트</h2>
+              <span>
+                {studyMode === 'certification'
+                  ? 'MY CERTIFICATES'
+                  : 'MY SUBJECTS'}
+              </span>
+              <h2>
+                {studyMode === 'certification'
+                  ? '자격증별 오답 노트'
+                  : '과목별 오답 노트'}
+              </h2>
             </div>
             <p>
-              노트를 선택하면 표지가 열리면서 해당 과목의 오답과
-              복습 상태가 나타납니다.
+              노트를 선택하면 표지가 열리면서 해당{' '}
+              {studyMode === 'certification' ? '자격증' : '과목'}의
+              오답과 복습 상태가 나타납니다.
             </p>
           </div>
 

@@ -778,23 +778,45 @@ const handleSubjectCreated = (
 
   return (
     <main className="history-page ai-review-page">
-      <section className="ai-review-hero">
-        <span className="ai-review-eyebrow">
-          {isCertificationView
-            ? 'CERTIFICATION ARCHIVE'
-            : 'LEARNING ARCHIVE'}
+      <header className="archive-page-heading">
+        <span className="archive-page-heading-icon" aria-hidden="true">
+          <BookOpen size={27} />
         </span>
-        <h1>
-          {isCertificationView
-            ? '나의 자격증 공부 기록'
-            : '나의 일반 학습 기록'}
-        </h1>
-        <p>
-          {isCertificationView
-            ? '자격증별 노트를 열어 필기·실기 공부 기록과 시험 준비 과정을 확인해 보세요.'
-            : '과목별 학습 노트를 열어 매일 남긴 기록과 성장 과정을 확인해 보세요.'}
-        </p>
-      </section>
+        <div className="archive-page-heading-copy">
+          <span className="archive-page-eyebrow">
+            {isCertificationView
+              ? 'CERTIFICATION ARCHIVE'
+              : 'LEARNING ARCHIVE'}
+          </span>
+          <h1>
+            {isCertificationView
+              ? '나의 자격증 공부 기록'
+              : '나의 일반 학습 기록'}
+          </h1>
+          <p>
+            {isCertificationView
+              ? '자격증별 노트를 열어 필기·실기 공부 기록과 시험 준비 과정을 확인해 보세요.'
+              : '과목별 학습 노트를 열어 매일 남긴 기록과 성장 과정을 확인해 보세요.'}
+          </p>
+        </div>
+      </header>
+
+      <nav className="study-type-switcher" aria-label="학습 기록 유형">
+        <button
+          type="button"
+          className={recordView === 'general' ? 'is-active' : ''}
+          onClick={() => setSearchParams({ type: 'general' })}
+        >
+          일반 학습
+        </button>
+        <button
+          type="button"
+          className={recordView === 'certification' ? 'is-active' : ''}
+          onClick={() => setSearchParams({ type: 'certification' })}
+        >
+          자격증 공부
+        </button>
+      </nav>
 
       {loadStatus === 'loading' ? (
         <div className="review-page-message">

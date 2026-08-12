@@ -1,6 +1,63 @@
+/* Archive page alignment: matches the Statistics page content bounds. */
+#root main.ai-review-page:not(.history-page):not(.wrong-notes-page) {
+  box-sizing: border-box !important;
+  padding: 78px clamp(24px, 3vw, 56px) 100px !important;
+}
+
+#root main.ai-review-page:not(.history-page):not(.wrong-notes-page) > header.archive-page-heading {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 0 36px !important;
+}
+
+#root main.ai-review-page:not(.history-page):not(.wrong-notes-page) > .study-type-switcher {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  width: 430px !important;
+  max-width: calc(100vw - 48px) !important;
+  margin: -20px 0 34px !important;
+  align-self: flex-start !important;
+  flex: none !important;
+}
+
+#root main.ai-review-page:not(.history-page):not(.wrong-notes-page) > .study-type-switcher > button {
+  width: 100% !important;
+  min-width: 0 !important;
+  flex: none !important;
+}
+
+html body main.ai-review-page:not(.history-page):not(.wrong-notes-page) {
+  box-sizing: border-box;
+  padding: 78px 24px 100px !important;
+}
+
+html body main.ai-review-page:not(.history-page):not(.wrong-notes-page)
+  > header.archive-page-heading {
+  width: min(100%, 1150px) !important;
+  margin: 0 auto 36px !important;
+}
+
+html body main.ai-review-page:not(.history-page):not(.wrong-notes-page)
+  > .study-type-switcher {
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin: -20px 0 34px max(0px, calc((100% - 1150px) / 2)) !important;
+}
+
+@media (max-width: 720px) {
+  html body main.ai-review-page:not(.history-page):not(.wrong-notes-page) {
+    padding: 36px 16px 72px !important;
+  }
+
+  html body main.ai-review-page:not(.history-page):not(.wrong-notes-page)
+    > .study-type-switcher {
+    margin: -18px 0 26px !important;
+  }
+}
+
 .ai-review-page {
   min-height: calc(100vh - 82px);
-  padding: 64px clamp(24px, 7vw, 120px) 100px;
+  padding: 42px clamp(24px, 7vw, 120px) 100px;
   color: #211f1b;
   background:
     radial-gradient(
@@ -42,6 +99,98 @@
   color: #777169;
   font-size: 18px;
   line-height: 1.8;
+}
+
+.archive-page-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 19px;
+  width: min(100%, 1150px);
+  margin: 0 auto 36px;
+}
+
+.archive-page-heading-icon {
+  display: inline-flex;
+  flex: 0 0 55px;
+  align-items: center;
+  justify-content: center;
+  width: 55px;
+  height: 55px;
+  color: #987138;
+  background: #fffdf7;
+  border: 1px solid #e0d2ba;
+  border-radius: 15px;
+  box-shadow: 0 5px 15px rgba(80, 67, 44, 0.06);
+}
+
+.archive-page-heading-copy {
+  min-width: 0;
+}
+
+.archive-page-eyebrow {
+  display: block;
+  color: #9a7846;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.7px;
+}
+
+.archive-page-heading h1 {
+  margin: 7px 0 10px;
+  font-family: 'Gowun Batang', Georgia, serif;
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: -1.7px;
+}
+
+.archive-page-heading p {
+  max-width: 720px;
+  margin: 0;
+  color: #6f6c65;
+  font-size: 14px;
+  line-height: 1.75;
+  word-break: keep-all;
+}
+
+.study-type-switcher {
+  display: inline-flex;
+  gap: 6px;
+  margin: -20px 0 34px max(0px, calc((100% - 1150px) / 2));
+  padding: 6px;
+  border: 1px solid #e4ddd1;
+  border-radius: 999px;
+  background: rgba(244, 241, 234, 0.92);
+  box-shadow: 0 8px 24px rgba(58, 49, 37, 0.05);
+}
+
+.study-type-switcher button {
+  min-width: 132px;
+  padding: 12px 22px;
+  border: 0;
+  border-radius: 999px;
+  color: #777168;
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.study-type-switcher button:hover {
+  color: #26231e;
+  transform: translateY(-1px);
+}
+
+.study-type-switcher button.is-active {
+  color: #fffdf8;
+  background: #211f1b;
+  box-shadow: 0 7px 16px rgba(33, 31, 27, 0.18);
 }
 
 .review-library {
@@ -995,5 +1144,108 @@
   .opened-review-note,
   .subject-modal {
     animation: none;
+  }
+}
+/* 학습 기록·오답 노트와 동일한 아카이브 상단 정렬 기준 */
+.ai-review-page {
+  box-sizing: border-box;
+  padding-top: 78px !important;
+  padding-right: 24px !important;
+  padding-left: 24px !important;
+}
+
+.ai-review-page > .archive-page-heading {
+  width: min(100%, 1150px) !important;
+  margin: 0 auto 36px !important;
+}
+
+.ai-review-page > .study-type-switcher {
+  display: flex;
+  width: min(100%, 1150px);
+  margin-right: auto !important;
+  margin-left: auto !important;
+}
+
+@media (max-width: 720px) {
+  .ai-review-page {
+    padding-top: 36px !important;
+    padding-right: 16px !important;
+    padding-left: 16px !important;
+  }
+}
+/* 학습 기록·오답 노트와 동일한 콘텐츠 끝선 및 상단 여백 */
+html body main.ai-review-page:not(.history-page):not(.wrong-notes-page) {
+  box-sizing: border-box;
+  padding-top: 78px !important;
+  padding-right: 24px !important;
+  padding-left: 24px !important;
+}
+
+html body main.ai-review-page:not(.history-page):not(.wrong-notes-page) > header.archive-page-heading,
+html body main.ai-review-page:not(.history-page):not(.wrong-notes-page) > .study-type-switcher {
+  width: min(100%, 1150px) !important;
+  margin-right: auto !important;
+  margin-left: auto !important;
+}
+
+html body main.ai-review-page:not(.history-page):not(.wrong-notes-page) > header.archive-page-heading {
+  margin-top: 0 !important;
+  margin-bottom: 36px !important;
+}
+
+html body main.ai-review-page:not(.history-page):not(.wrong-notes-page) > .study-type-switcher {
+  margin-top: -20px !important;
+  margin-bottom: 34px !important;
+}
+
+@media (max-width: 720px) {
+  html body main.ai-review-page:not(.history-page):not(.wrong-notes-page) {
+    padding-top: 36px !important;
+    padding-right: 16px !important;
+    padding-left: 16px !important;
+  }
+}
+/* Keep the archive heading on the same wide grid as StatisticsPage. */
+html body main.ai-review-page:not(.history-page):not(.wrong-notes-page) {
+  padding-inline: clamp(24px, 3vw, 56px) !important;
+}
+
+html body main.ai-review-page:not(.history-page):not(.wrong-notes-page)
+  > header.archive-page-heading {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 0 36px !important;
+}
+
+/* The learning-type selector is a compact two-option control, not a full row. */
+html body main.ai-review-page:not(.history-page):not(.wrong-notes-page)
+  > .study-type-switcher {
+  box-sizing: border-box;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  width: min(100%, 430px) !important;
+  max-width: 430px !important;
+  margin: -20px 0 34px !important;
+  align-self: flex-start !important;
+  flex: none !important;
+}
+
+html body main.ai-review-page:not(.history-page):not(.wrong-notes-page)
+  > .study-type-switcher
+  > button {
+  width: 100% !important;
+  min-width: 0 !important;
+  flex: none !important;
+}
+
+@media (max-width: 640px) {
+  html body main.ai-review-page:not(.history-page):not(.wrong-notes-page) {
+    padding-inline: 16px !important;
+  }
+
+  html body main.ai-review-page:not(.history-page):not(.wrong-notes-page)
+    > .study-type-switcher {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 }
