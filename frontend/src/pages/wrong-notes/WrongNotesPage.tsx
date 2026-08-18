@@ -612,6 +612,7 @@ function WrongNotesPage() {
 
   return (
     <main className="wrong-notes-page ai-review-page">
+      <div className="wrong-notes-container">
       <header className="archive-page-heading">
         <span className="archive-page-heading-icon" aria-hidden="true">
           <FileQuestion size={27} />
@@ -630,7 +631,7 @@ function WrongNotesPage() {
           </p>
         </div>
       </header>
-
+      <div className="switcher-container">
       <nav className="study-type-switcher" aria-label="오답노트 유형">
         <button
           type="button"
@@ -647,6 +648,7 @@ function WrongNotesPage() {
           자격증 공부
         </button>
       </nav>
+      </div>
 
       {isLoading ? (
         <div className="review-page-message">
@@ -688,6 +690,7 @@ function WrongNotesPage() {
           />
         </section>
       )}
+      </div>
     </main>
   )
 }

@@ -778,6 +778,7 @@ const handleSubjectCreated = (
 
   return (
     <main className="history-page ai-review-page">
+      <div className="history-container">
       <header className="archive-page-heading">
         <span className="archive-page-heading-icon" aria-hidden="true">
           <BookOpen size={27} />
@@ -800,7 +801,7 @@ const handleSubjectCreated = (
           </p>
         </div>
       </header>
-
+      <div className="switcher-container">
       <nav className="study-type-switcher" aria-label="학습 기록 유형">
         <button
           type="button"
@@ -817,6 +818,7 @@ const handleSubjectCreated = (
           자격증 공부
         </button>
       </nav>
+      </div>
 
       {loadStatus === 'loading' ? (
         <div className="review-page-message">
@@ -882,6 +884,7 @@ const handleSubjectCreated = (
         </SubjectBookshelf>
       </section>
       )}
+      </div>
     </main>
   )
 }

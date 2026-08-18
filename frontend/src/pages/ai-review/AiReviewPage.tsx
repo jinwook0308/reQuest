@@ -612,6 +612,7 @@ function AiReviewPage() {
 
   return (
     <main className="ai-review-page">
+      <div className="ai-review-container">
       <header className="archive-page-heading">
         <span className="archive-page-heading-icon" aria-hidden="true">
           <Sparkles size={27} />
@@ -630,7 +631,7 @@ function AiReviewPage() {
           </p>
         </div>
       </header>
-
+      <div className="switcher-container">
       <nav className="study-type-switcher" aria-label="AI 복습 유형">
         <button
           type="button"
@@ -647,6 +648,7 @@ function AiReviewPage() {
           자격증 공부
         </button>
       </nav>
+      </div>
 
       {isLoading ? (
         <div className="review-page-message">
@@ -886,6 +888,7 @@ function AiReviewPage() {
           </section>
         </div>
       )}
+      </div>
     </main>
   )
 }

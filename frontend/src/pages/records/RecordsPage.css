@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
 
 .records-page {
-  --record-background: #fbfaf7;
+  --record-background: #f8f8f6;
   --record-surface: #ffffff;
   --record-paper: #fffdf7;
   --record-border: #e6e2da;
@@ -16,13 +16,7 @@
 
   min-height: 100vh;
   padding: 42px 24px 80px;
-  background:
-    radial-gradient(
-      circle at 12% 0%,
-      rgba(235, 217, 181, 0.25),
-      transparent 28%
-    ),
-    var(--record-background);
+  background:#fafaf8;
   color: var(--record-text);
   font-family: 'Noto Sans KR', sans-serif;
 }

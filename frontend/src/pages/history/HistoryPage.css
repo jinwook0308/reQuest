@@ -251,6 +251,12 @@ html body main.history-page.ai-review-page > .study-type-switcher {
   line-height: 1.6;
 }
 
+.switcher-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
 
 /* ==========================================
    4. 중앙 본문 영역 (Main Content)
@@ -347,7 +353,7 @@ html body main.history-page.ai-review-page > .study-type-switcher {
 
 .history-heading p {
   margin: 0;
-  color: var(--history-text-soft);
+  color: var(--statistics-text-soft);
   font-size: 14px;
   line-height: 1.75;
 }
@@ -708,6 +714,10 @@ html body main.history-page.ai-review-page > .study-type-switcher {
   }
 }
 
+.history-container {
+  width: min(100%, 1150px);
+  margin: 0 auto;
+}
 
 
 /* ==========================================
@@ -779,18 +789,12 @@ html body main.history-page.ai-review-page > .study-type-switcher {
   }
 }
 
-/* AI 복습 노트와 동일한 책장/펼친 노트 흐름 */
 .history-page.ai-review-page {
   min-height: calc(100vh - 82px);
-  padding: 64px clamp(24px, 7vw, 120px) 100px;
+  padding: 42px clamp(24px, 7vw, 120px) 100px;
+  margin-top: 26px;
   color: #211f1b;
-  background:
-    radial-gradient(
-      circle at 14% 6%,
-      rgba(225, 190, 122, 0.13),
-      transparent 30%
-    ),
-    #fbfaf7;
+  background:#fafaf8;
 }
 
 .history-note-create-button,
@@ -1015,7 +1019,7 @@ button.history-date-filter {
     align-self: flex-end;
   }
 }
-/* 통계 페이지와 같은 좌우 끝선 및 공통 상단 여백 */
+
 .history-page.ai-review-page {
   box-sizing: border-box;
   padding-top: 78px !important;
@@ -1112,4 +1116,9 @@ html body main.history-page.ai-review-page > .study-type-switcher > button {
     width: 100% !important;
     max-width: 100% !important;
   }
+}
+
+#root main.history-page.ai-review-page .archive-page-heading-copy,
+#root main.history-page.ai-review-page .history-heading > div {
+  transform: translateY(7px) !important;
 }
