@@ -13,6 +13,7 @@ body,
   min-width: 320px;
   min-height: 100%;
   margin: 0;
+  background-color: #fafaf8
 }
 
 body {
@@ -24,4 +25,9 @@ a,
 input,
 textarea {
   font: inherit;
+}
+
+.main-page,
+.dashboard-container {
+  background-color: #fafaf8 !important;
 }

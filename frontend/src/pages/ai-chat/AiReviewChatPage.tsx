@@ -14,6 +14,8 @@ import {
   Check,
   ChevronDown,
   FileText,
+  PanelLeft as _PanelLeft,
+  PanelLeftClose,
   MessageSquarePlus,
   Send,
   Sparkles,
@@ -23,6 +25,7 @@ import {
 
 import { apiFetch } from '../../lib/api'
 import './AiReviewChatPage.css'
+import { PanelRightClose } from 'lucide-react';
 
 type StudyMode = 'general' | 'certification'
 
@@ -138,10 +141,11 @@ export default function AiReviewChatPage() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
     null,
   )
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([])
   const [question, setQuestion] = useState('')
-  const [isRecordsOpen, setIsRecordsOpen] = useState(true)
+  const [isRecordsOpen, setIsRecordsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isConversationLoading, setIsConversationLoading] = useState(false)
   const [isSending, setIsSending] = useState(false)
@@ -456,23 +460,35 @@ export default function AiReviewChatPage() {
 
   return (
     <main className="ai-chat-page">
-      <aside className="ai-chat-sidebar">
-        <button
-          type="button"
-          className="ai-chat-back"
-          onClick={() => navigate('/ai-review?type=' + mode)}
-        >
-          <ArrowLeft size={18} />
-          복습 노트로
-        </button>
+      <aside className={`ai-chat-sidebar ${isSidebarOpen ? 'is-open' : 'is-closed'}`}>
+        <div className="ai-chat-sidebar-top-bar">
+    <button
+      type="button"
+      className="ai-chat-back"
+      onClick={() => navigate('/ai-review?type=' + mode)}
+    >
+      <ArrowLeft size={18} />
+      복습 노트로
+    </button>
 
-        <div className="ai-chat-sidebar-heading">
-          <span>
-            {mode === 'certification' ? 'CERTIFICATE CHAT' : 'SUBJECT CHAT'}
-          </span>
-          <h1>{collectionName}</h1>
-          <p>기록을 연결하거나 자유롭게 질문해 보세요.</p>
-        </div>
+    {/* 사이드바 닫기 버튼 */}
+    <button
+      type="button"
+      className="ai-chat-sidebar-toggle"
+      onClick={() => setIsSidebarOpen(false)}
+      aria-label="사이드바 접기"
+    >
+      <PanelLeftClose size={20} />
+    </button>
+  </div>
+
+  <div className="ai-chat-sidebar-heading">
+    <span>
+      {mode === 'certification' ? 'CERTIFICATE CHAT' : 'SUBJECT CHAT'}
+    </span>
+    <h1>{collectionName}</h1>
+    <p>기록을 연결하거나 자유롭게 질문해 보세요.</p>
+  </div>
 
         <button
           type="button"
@@ -525,14 +541,28 @@ export default function AiReviewChatPage() {
 
       <section className="ai-chat-workspace">
         <header className="ai-chat-toolbar">
-          <div>
-            <p>{mode === 'certification' ? '자격증 AI 복습' : 'AI 복습'}</p>
-            <h2>{activeConversation?.title || '새 대화'}</h2>
-          </div>
-          <span className="ai-chat-mode-badge">
-            {mode === 'certification' ? '자격증 공부' : '일반 학습'}
-          </span>
-        </header>
+  <div className="ai-chat-toolbar-left">
+    {!isSidebarOpen && (
+      <button
+        type="button"
+        className="ai-chat-sidebar-open-button"
+        onClick={() => setIsSidebarOpen(true)}
+        aria-label="사이드바 열기"
+      >
+        <PanelRightClose size={20} />
+      </button>
+    )}
+    
+    <div>
+      <p>{mode === 'certification' ? '자격증 AI 복습' : 'AI 복습'}</p>
+      <h2>{activeConversation?.title || '새 대화'}</h2>
+    </div>
+  </div>
+  
+  <span className="ai-chat-mode-badge">
+    {mode === 'certification' ? '자격증 공부' : '일반 학습'}
+  </span>
+</header>
 
         <div className="ai-chat-scroll-area">
           {isLoading || isConversationLoading ? (
@@ -614,7 +644,7 @@ export default function AiReviewChatPage() {
           >
             <span>
               <BookOpen size={18} />
-              내 {collectionName} 학습 기록
+              내 {collectionName}  기록
               <small>{subjectRecords.length}개</small>
             </span>
             <ChevronDown

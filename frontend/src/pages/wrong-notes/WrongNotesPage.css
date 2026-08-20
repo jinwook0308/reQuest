@@ -107,7 +107,7 @@ html body main.wrong-notes-page.ai-review-page > .study-type-switcher > button {
 }
 
 .wrong-notes-container {
-  width: min(100%, 1100px);
+  width: min(100%, 1150px);
   margin: 0 auto;
 }
 
@@ -326,6 +326,13 @@ html body main.wrong-notes-page.ai-review-page > .study-type-switcher > button {
   background: #f1efe9;
   color: var(--notes-text-light);
   border-right: 1px solid var(--notes-border);
+}
+
+.switcher-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 
 .wrong-note-thumbnail img {
@@ -704,18 +711,12 @@ html body main.wrong-notes-page.ai-review-page > .study-type-switcher > button {
   }
 }
 
-/* AI 복습 노트와 동일한 책장/펼친 노트 흐름 */
 .wrong-notes-page.ai-review-page {
   min-height: calc(100vh - 82px);
-  padding: 64px clamp(24px, 7vw, 120px) 100px;
+  padding: 42px clamp(24px, 7vw, 120px) 100px;
+  margin-top: 26px;
   color: #211f1b;
-  background:
-    radial-gradient(
-      circle at 14% 6%,
-      rgba(225, 190, 122, 0.13),
-      transparent 30%
-    ),
-    #fbfaf7;
+  background:#fafaf8;
 }
 
 .wrong-notes-note-create-button,
@@ -914,4 +915,10 @@ html body main.wrong-notes-page.ai-review-page > .study-type-switcher > button {
     width: 100% !important;
     max-width: 100% !important;
   }
+}
+
+#root main.wrong-notes-page.ai-review-page .archive-page-heading-copy,
+#root main.wrong-notes-page.ai-review-page .wrong-notes-heading > div,
+#root main.wrong-notes-page.ai-review-page .history-heading > div {
+  transform: translateY(7px) !important;
 }

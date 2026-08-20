@@ -13,13 +13,7 @@
 
   min-height: 100vh;
   padding: 42px 24px 80px;
-  background:
-    radial-gradient(
-      circle at 12% 0%,
-      rgba(235, 217, 181, 0.25),
-      transparent 28%
-    ),
-    var(--statistics-background);
+  background:#fafaf8;
   color: var(--statistics-text);
   font-family: 'Noto Sans KR', sans-serif;
 }

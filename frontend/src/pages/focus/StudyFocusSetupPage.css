@@ -2,9 +2,7 @@
   min-height: calc(100vh - 76px);
   padding: 54px 28px 90px;
   color: #1d1d1a;
-  background:
-    radial-gradient(circle at 14% 7%, rgba(211, 168, 84, 0.09), transparent 28%),
-    #f7f5ef;
+  background:#f9f8f6;
 }
 
 .focus-setup-page.is-loading {
