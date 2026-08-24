@@ -1,6 +1,14 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
+  --app-background: #ffffff;
+  --app-surface: #f7f8f8;
+  --app-card: #fbfbfa;
+  --app-paper: #fffdf8;
+  --app-border: #dfe3e4;
+  --app-shadow: 0 8px 24px rgba(31, 38, 41, 0.065);
+
+  color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -13,7 +21,7 @@ body,
   min-width: 320px;
   min-height: 100%;
   margin: 0;
-  background-color: #fafaf8
+  background-color: var(--app-background);
 }
 
 body {
@@ -28,6 +36,76 @@ textarea {
 }
 
 .main-page,
-.dashboard-container {
-  background-color: #fafaf8 !important;
+.dashboard-container,
+.records-page,
+.history-page,
+.history-detail-page,
+.ai-review-page,
+.ai-chat-page,
+.wrong-notes-page,
+.wrong-note-form-page,
+.wrong-note-detail-page,
+.quest-review-page,
+.quiz-page,
+.statistics-page,
+.profile-page,
+.focus-setup-page {
+  background: var(--app-background) !important;
+}
+
+/*
+ * 인증 화면의 가장 큰 콘텐츠 표면을 공통 톤으로 맞춥니다.
+ * 페이지는 순백, 카드는 한 단계 어두운 뉴트럴 화이트를 사용해
+ * 기존 종이 질감과 골드 포인트를 유지하면서 영역을 구분합니다.
+ */
+:where(
+  .planner-card,
+  .weekly-summary,
+  .lab-card,
+  .streak-card,
+  .records-page .record-card,
+  .history-page .sidebar-card,
+  .history-page .history-record-card,
+  .history-detail-page .history-detail-card,
+  .wrong-notes-page .wrong-note-card,
+  .wrong-note-form-page .wrong-note-form-card,
+  .wrong-note-detail-page .wrong-note-detail-card,
+  .quest-review-page .quest-source-card,
+  .quest-review-page .quest-question-card,
+  .quiz-page .quiz-question-card,
+  .quiz-page .quiz-result-card,
+  .statistics-page .statistics-summary,
+  .statistics-page .statistics-card,
+  .profile-page .profile-card,
+  .profile-page .profile-session-card,
+  .focus-setup-page .focus-setup-form,
+  .ai-review-page .review-record-card,
+  .ai-chat-page .ai-chat-record-panel
+) {
+  background-color: var(--app-surface) !important;
+  border-color: var(--app-border) !important;
+}
+
+:where(
+  .planner-card,
+  .weekly-summary,
+  .lab-card,
+  .records-page .record-card,
+  .history-page .sidebar-card,
+  .history-page .history-record-card,
+  .history-detail-page .history-detail-card,
+  .wrong-notes-page .wrong-note-card,
+  .wrong-note-form-page .wrong-note-form-card,
+  .wrong-note-detail-page .wrong-note-detail-card,
+  .quest-review-page .quest-source-card,
+  .quest-review-page .quest-question-card,
+  .quiz-page .quiz-question-card,
+  .quiz-page .quiz-result-card,
+  .profile-page .profile-card,
+  .profile-page .profile-session-card,
+  .focus-setup-page .focus-setup-form,
+  .ai-review-page .review-record-card,
+  .ai-chat-page .ai-chat-record-panel
+) {
+  box-shadow: var(--app-shadow);
 }

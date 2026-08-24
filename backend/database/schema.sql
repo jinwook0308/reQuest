@@ -133,6 +133,23 @@ CREATE TABLE IF NOT EXISTS study_sessions (
         )
 );
 
+-- 날짜별 하루 목표
+-- 학습 기록과 독립적으로 여러 할 일을 저장합니다.
+CREATE TABLE IF NOT EXISTS daily_goals (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+    goal_date DATE NOT NULL,
+    content VARCHAR(300) NOT NULL,
+    is_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT daily_goals_content_check
+        CHECK (LENGTH(BTRIM(content)) > 0)
+);
+
 -- 4. 학습 기록별 AI 맞춤 추천
 CREATE TABLE IF NOT EXISTS study_recommendation_sets (
     id BIGSERIAL PRIMARY KEY,
@@ -319,6 +336,9 @@ CREATE INDEX IF NOT EXISTS idx_study_sessions_user_status
 CREATE UNIQUE INDEX IF NOT EXISTS idx_study_sessions_one_active_per_user
     ON study_sessions(user_id)
     WHERE status IN ('running', 'paused');
+
+CREATE INDEX IF NOT EXISTS idx_daily_goals_user_date
+    ON daily_goals(user_id, goal_date, created_at, id);
 
 CREATE INDEX IF NOT EXISTS idx_study_recommendation_sets_record
     ON study_recommendation_sets(user_id, study_record_id);

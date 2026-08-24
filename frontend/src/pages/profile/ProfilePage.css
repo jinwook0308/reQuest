@@ -1,0 +1,307 @@
+@import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
+
+.profile-page {
+  min-height: 100vh;
+  padding: 42px 24px 80px;
+  background: var(--app-background, #fffdfa);
+  color: #1c1c1a;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+.profile-page *,
+.profile-page *::before,
+.profile-page *::after {
+  box-sizing: border-box;
+}
+
+.profile-container {
+  width: min(100%, 1000px);
+  margin: 0 auto;
+}
+
+.profile-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  background: transparent;
+  color: #6f6c65;
+  border: 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.profile-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 19px;
+  margin: 38px 0 34px;
+}
+
+.profile-heading-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  background: #fffaf0;
+  color: #987138;
+  border: 1px solid #e0d2ba;
+  border-radius: 15px;
+  box-shadow: 0 5px 15px rgba(80, 67, 44, 0.06);
+}
+
+.profile-eyebrow {
+  color: #9a7846;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.7px;
+}
+
+.profile-heading h1 {
+  margin: 7px 0 9px;
+  font-family: 'Gowun Batang', Georgia, serif;
+  font-size: 38px;
+  line-height: 1.2;
+}
+
+.profile-heading p,
+.profile-card-heading p {
+  margin: 0;
+  color: #77736b;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.profile-card,
+.profile-session-card {
+  background: #f8f7f3;
+  border: 1px solid #e4e0d8;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(46, 42, 33, 0.05);
+}
+
+.profile-card {
+  padding: 28px;
+}
+
+.profile-card-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 25px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e4e0d8;
+}
+
+.profile-card-heading > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #a17331;
+}
+
+.profile-card-heading h2 {
+  margin: 0 0 5px;
+  font-family: 'Gowun Batang', Georgia, serif;
+  font-size: 21px;
+}
+
+.profile-card form {
+  display: grid;
+  gap: 18px;
+}
+
+.profile-field {
+  display: grid;
+  gap: 8px;
+}
+
+.profile-field > span {
+  color: #4d4a44;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.profile-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  background: #fff;
+  color: #1c1c1a;
+  border: 1px solid #d8d2c8;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.profile-field input:focus {
+  border-color: #bf8a3c;
+  outline: 3px solid rgba(216, 151, 49, 0.16);
+}
+
+.profile-field small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #8b877f;
+  font-size: 10px;
+}
+
+.profile-email-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.profile-check-button {
+  padding: 0 12px;
+  background: #fffaf0;
+  color: #795522;
+  border: 1px solid #ddcba9;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-check-button:disabled {
+  color: #aaa69e;
+  background: #efede8;
+  border-color: #dedbd4;
+  cursor: not-allowed;
+}
+
+.profile-submit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 45px;
+  margin-top: 3px;
+  background: #1d1d1b;
+  color: white;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-submit-button:disabled {
+  background: #9b9993;
+  cursor: not-allowed;
+}
+
+.profile-form-message {
+  margin: -4px 0 0;
+  padding: 10px 12px;
+  border-radius: 7px;
+  font-size: 11px;
+}
+
+.is-success,
+.profile-form-message.is-success {
+  color: #3f704a !important;
+}
+
+.profile-form-message.is-success {
+  background: #edf5ec;
+}
+
+.is-error,
+.profile-form-message.is-error {
+  color: #a34e3f !important;
+}
+
+.profile-form-message.is-error {
+  background: #fff0ed;
+}
+
+.profile-session-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 20px;
+  padding: 20px 24px;
+}
+
+.profile-session-card div {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-session-card strong {
+  font-size: 13px;
+}
+
+.profile-session-card span {
+  color: #858179;
+  font-size: 11px;
+}
+
+.profile-session-card button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 13px;
+  background: #fff;
+  color: #9a483c;
+  border: 1px solid #ebcfc9;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-page {
+    padding: 28px 17px 55px;
+  }
+
+  .profile-heading h1 {
+    font-size: 31px;
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-heading-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .profile-card {
+    padding: 22px 18px;
+  }
+
+  .profile-email-row {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-check-button {
+    min-height: 39px;
+  }
+
+  .profile-session-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .profile-session-card button {
+    justify-content: center;
+  }
+}

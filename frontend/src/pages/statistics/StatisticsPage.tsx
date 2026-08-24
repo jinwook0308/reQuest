@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 import {
   Area,
@@ -6,6 +6,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -66,9 +67,11 @@ interface SubjectStatistics {
   totalMinutes: number
   averageUnderstanding: number
   percentage: number
+  color: string
 }
 
-interface ApiStudyRecord extends Omit<SavedStudyRecord, 'id' | 'minutes' | 'understanding'> {
+interface ApiStudyRecord
+  extends Omit<SavedStudyRecord, 'id' | 'minutes' | 'understanding'> {
   id: number | string
   minutes: number | string
   understanding: number | string
@@ -93,6 +96,23 @@ const STATISTICS_VIEW_LABELS: Record<StatisticsView, string> = {
   focus: '순공 시간',
 }
 
+const STATISTICS_VIEW_COLORS: Record<StatisticsView, string> = {
+  all: '#2d2d2a',
+  general: '#d58a24',
+  certification: '#3f7d55',
+  focus: '#3978bd',
+}
+
+const STATISTICS_HEATMAP_COLORS: Record<
+  StatisticsView,
+  [string, string, string, string]
+> = {
+  all: ['#d7d5cf', '#aaa79f', '#6c6a64', '#2d2d2a'],
+  general: ['#f8dfb8', '#edbb70', '#d58a24', '#9f5c0a'],
+  certification: ['#d8eadc', '#9fcca9', '#65a477', '#346c48'],
+  focus: ['#d8e7f6', '#9ec2e7', '#639bd2', '#2e6da9'],
+}
+
 function formatNumber(value: number) {
   return new Intl.NumberFormat('ko-KR').format(value)
 }
@@ -102,6 +122,18 @@ function formatDateKey(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function formatKoreaDateKey(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+
+  return `${values.year}-${values.month}-${values.day}`
 }
 
 function parseDateKey(dateKey: string) {
@@ -132,6 +164,35 @@ function getViewLabel(view: StatisticsView) {
   return STATISTICS_VIEW_LABELS[view]
 }
 
+function getViewColor(view: StatisticsView) {
+  return STATISTICS_VIEW_COLORS[view]
+}
+
+function getViewStyle(view: StatisticsView) {
+  const colors = STATISTICS_HEATMAP_COLORS[view]
+
+  return {
+    '--statistics-accent': getViewColor(view),
+    '--statistics-heatmap-1': colors[0],
+    '--statistics-heatmap-2': colors[1],
+    '--statistics-heatmap-3': colors[2],
+    '--statistics-heatmap-4': colors[3],
+  } as CSSProperties
+}
+
+function createSubjectColorMap(records: SavedStudyRecord[]) {
+  const subjects = [
+    ...new Set(records.map((record) => record.subject.trim() || '과목 없음')),
+  ].sort((left, right) => left.localeCompare(right, 'ko-KR'))
+
+  return new Map(
+    subjects.map((subject, index) => [
+      subject,
+      `hsl(${(32 + index * 137.508) % 360} 48% 44%)`,
+    ]),
+  )
+}
+
 function getNextView(view: StatisticsView, direction: -1 | 1) {
   const currentIndex = STATISTICS_VIEW_ORDER.indexOf(view)
   const nextIndex =
@@ -151,12 +212,13 @@ function getRecordsForView(
 ) {
   if (view === 'focus') return focusRecords
   if (view === 'certification') return records.filter(isCertificationRecord)
-  if (view === 'general') return records.filter((record) => !isCertificationRecord(record))
+  if (view === 'general')
+    return records.filter((record) => !isCertificationRecord(record))
   return records
 }
 
 function getRecentRecords(records: SavedStudyRecord[], days: number) {
-  const lastDate = new Date()
+  const lastDate = parseDateKey(formatKoreaDateKey(new Date()))
   lastDate.setHours(23, 59, 59, 999)
   const firstDate = new Date(lastDate)
   firstDate.setDate(firstDate.getDate() - (days - 1))
@@ -199,7 +261,7 @@ function createDailyStatistics(date: Date, records: SavedStudyRecord[]): DailySt
 }
 
 function createRecentDailyStatistics(records: SavedStudyRecord[], days: number) {
-  const today = new Date()
+  const today = parseDateKey(formatKoreaDateKey(new Date()))
   today.setHours(12, 0, 0, 0)
 
   return Array.from({ length: days }, (_, index) => {
@@ -254,10 +316,18 @@ function calculateBestStreak(records: SavedStudyRecord[]) {
   return best
 }
 
-function createSubjectStatistics(records: SavedStudyRecord[]) {
+function createSubjectStatistics(
+  records: SavedStudyRecord[],
+  subjectColorMap: Map<string, string>,
+) {
   const grouped = new Map<
     string,
-    { recordCount: number; totalMinutes: number; understandingTotal: number; understandingCount: number }
+    {
+      recordCount: number
+      totalMinutes: number
+      understandingTotal: number
+      understandingCount: number
+    }
   >()
 
   records.forEach((record) => {
@@ -285,15 +355,18 @@ function createSubjectStatistics(records: SavedStudyRecord[]) {
   )
 
   return [...grouped.entries()]
-    .map(([subject, value]): SubjectStatistics => ({
-      subject,
-      recordCount: value.recordCount,
-      totalMinutes: value.totalMinutes,
-      averageUnderstanding: value.understandingCount
-        ? value.understandingTotal / value.understandingCount
-        : 0,
-      percentage: totalMinutes ? (value.totalMinutes / totalMinutes) * 100 : 0,
-    }))
+    .map(
+      ([subject, value]): SubjectStatistics => ({
+        subject,
+        recordCount: value.recordCount,
+        totalMinutes: value.totalMinutes,
+        averageUnderstanding: value.understandingCount
+          ? value.understandingTotal / value.understandingCount
+          : 0,
+        percentage: totalMinutes ? (value.totalMinutes / totalMinutes) * 100 : 0,
+        color: subjectColorMap.get(subject) ?? '#6f6c65',
+      }),
+    )
     .sort((left, right) => right.totalMinutes - left.totalMinutes)
 }
 
@@ -303,12 +376,15 @@ function createFocusRecords(sessions: StudySession[]): SavedStudyRecord[] {
     .map((session, index) => {
       const elapsedSeconds = Math.max(0, Number(session.elapsedSeconds || 0))
       const targetSeconds = Math.max(1, Number(session.targetMinutes || 0) * 60)
-      const completionRate = Math.min(100, Math.round((elapsedSeconds / targetSeconds) * 100))
+      const completionRate = Math.min(
+        100,
+        Math.round((elapsedSeconds / targetSeconds) * 100),
+      )
       const completedAt = new Date(session.endedAt ?? session.startedAt)
 
       return {
         id: -(index + 1),
-        date: formatDateKey(completedAt),
+        date: formatKoreaDateKey(completedAt),
         subject: session.subject,
         unit: session.unit,
         minutes: String(Math.round(elapsedSeconds / 60)),
@@ -323,7 +399,19 @@ function createFocusRecords(sessions: StudySession[]): SavedStudyRecord[] {
 }
 
 function formatSubjectAxisLabel(value: string) {
-  return value.length > 9 ? `${value.slice(0, 9)}…` : value
+  return value.length > 16 ? `${value.slice(0, 16)}…` : value
+}
+
+function StatisticsViewBadge({ view }: { view: StatisticsView }) {
+  return (
+    <span
+      className="statistics-view-badge"
+      style={{ color: getViewColor(view), borderColor: getViewColor(view) }}
+    >
+      <i style={{ backgroundColor: getViewColor(view) }} />
+      {getViewLabel(view)}
+    </span>
+  )
 }
 
 function StatisticsViewControls({
@@ -368,8 +456,12 @@ function StudyTimeTooltip({
   return (
     <div className="statistics-chart-tooltip">
       <strong>{point.dateLabel}</strong>
-      <span>{focus ? '순공 시간' : '학습시간'} {formatStudyTime(point.totalMinutes)}</span>
-      <span>{focus ? '완료 세션' : '학습 기록'} {point.recordCount}개</span>
+      <span>
+        {focus ? '순공 시간' : '학습시간'} {formatStudyTime(point.totalMinutes)}
+      </span>
+      <span>
+        {focus ? '완료 세션' : '학습 기록'} {point.recordCount}개
+      </span>
     </div>
   )
 }
@@ -386,14 +478,19 @@ function UnderstandingTooltip({
     <div className="statistics-chart-tooltip">
       <strong>{point.dateLabel}</strong>
       <span>
-        {focus ? '목표 달성률' : '평균 이해도'}{' '}
+        {focus ? '순공 시간' : '학습시간'} {formatStudyTime(point.totalMinutes)}
+      </span>
+      <span>
+        {focus ? '완료 세션' : '학습 기록'} {point.recordCount}개
+      </span>
+      <span>
+        {focus ? '평균 목표 달성률' : '평균 이해도'}{' '}
         {point.averageUnderstanding === null
           ? '-'
           : focus
             ? `${Math.round(point.averageUnderstanding * 20)}%`
             : `${point.averageUnderstanding.toFixed(1)} / 5`}
       </span>
-      <span>{focus ? '완료 세션' : '학습 기록'} {point.recordCount}개</span>
     </div>
   )
 }
@@ -409,7 +506,9 @@ function SubjectTimeTooltip({
   return (
     <div className="statistics-chart-tooltip">
       <strong>{point.subject}</strong>
-      <span>{focus ? '순공 시간' : '학습시간'} {formatStudyTime(point.totalMinutes)}</span>
+      <span>
+        {focus ? '순공 시간' : '학습시간'} {formatStudyTime(point.totalMinutes)}
+      </span>
       <span>
         {focus ? '목표 달성률' : '평균 이해도'}{' '}
         {focus
@@ -488,6 +587,10 @@ function StatisticsPage() {
   }, [])
 
   const focusRecords = useMemo(() => createFocusRecords(focusSessions), [focusSessions])
+  const subjectColorMap = useMemo(
+    () => createSubjectColorMap([...records, ...focusRecords]),
+    [focusRecords, records],
+  )
 
   const globalSummary = useMemo(() => {
     const totalMinutes = records.reduce(
@@ -538,17 +641,15 @@ function StatisticsPage() {
     [heatmapRecords],
   )
   const subjectStatistics = useMemo(
-    () => createSubjectStatistics(getRecentRecords(subjectRecords, 30)),
-    [subjectRecords],
+    () => createSubjectStatistics(getRecentRecords(subjectRecords, 30), subjectColorMap),
+    [subjectColorMap, subjectRecords],
   )
 
   const totalRecentMinutes = recentStudyTime.reduce(
     (sum, day) => sum + day.totalMinutes,
     0,
   )
-  const growthPoints = growthStatistics.filter(
-    (day) => day.averageUnderstanding !== null,
-  )
+  const growthPoints = growthStatistics.filter((day) => day.averageUnderstanding !== null)
   const currentGrowthValue = growthPoints.at(-1)?.averageUnderstanding ?? 0
   const firstGrowthValue = growthPoints[0]?.averageUnderstanding ?? currentGrowthValue
   const growthChange = currentGrowthValue - firstGrowthValue
@@ -583,7 +684,9 @@ function StatisticsPage() {
           <div>
             <span className="statistics-eyebrow">LEARNING INSIGHT</span>
             <h1>나의 학습 통계</h1>
-            <p>저장한 학습 기록과 순공 세션을 바탕으로 공부 흐름과 성장을 확인해 보세요.</p>
+            <p>
+              저장한 학습 기록과 순공 세션을 바탕으로 공부 흐름과 성장을 확인해 보세요.
+            </p>
           </div>
         </header>
 
@@ -592,92 +695,219 @@ function StatisticsPage() {
         <section className="statistics-summary" aria-label="학습 요약">
           <article className="statistics-summary-card">
             <Clock3 size={23} />
-            <div><span>총 학습시간</span><strong>{formatStudyTime(globalSummary.totalMinutes)}</strong></div>
+            <div>
+              <span>총 학습시간</span>
+              <strong>{formatStudyTime(globalSummary.totalMinutes)}</strong>
+            </div>
           </article>
           <article className="statistics-summary-card">
             <CalendarDays size={23} />
-            <div><span>활동한 날짜</span><strong>{formatNumber(globalSummary.activeDays)}일</strong></div>
+            <div>
+              <span>활동한 날짜</span>
+              <strong>{formatNumber(globalSummary.activeDays)}일</strong>
+            </div>
           </article>
           <article className="statistics-summary-card">
             <Star size={23} />
-            <div><span>평균 이해도</span><strong>{globalSummary.averageUnderstanding.toFixed(1)} / 5</strong></div>
+            <div>
+              <span>평균 이해도</span>
+              <strong>{globalSummary.averageUnderstanding.toFixed(1)} / 5</strong>
+            </div>
           </article>
           <article className="statistics-summary-card">
             <Flame size={23} />
-            <div><span>최고 연속 기록</span><strong>{formatNumber(globalSummary.bestStreak)}일</strong></div>
+            <div>
+              <span>최고 연속 기록</span>
+              <strong>{formatNumber(globalSummary.bestStreak)}일</strong>
+            </div>
           </article>
         </section>
 
         {loading ? (
-          <section className="statistics-card statistics-loading">통계를 불러오는 중입니다.</section>
+          <section className="statistics-card statistics-loading">
+            통계를 불러오는 중입니다.
+          </section>
         ) : (
           <>
             <section className="statistics-chart-grid">
-              <article className="statistics-card statistics-switchable-card">
+              <article
+                className="statistics-card statistics-switchable-card"
+                data-view={timeView}
+                style={getViewStyle(timeView)}
+              >
                 <StatisticsViewControls view={timeView} onChange={setTimeView} />
                 <div className="statistics-card-heading">
                   <div>
-                    <h2>최근 14일 학습시간 · {getViewLabel(timeView)}</h2>
-                    <p>{timeView === 'focus' ? '완료한 타이머 세션의 순공시간입니다.' : '날짜별로 저장된 총 학습시간입니다.'}</p>
+                    <div className="statistics-title-row">
+                      <h2>최근 14일 학습시간</h2>
+                      <StatisticsViewBadge view={timeView} />
+                    </div>
+                    <p>
+                      {timeView === 'focus'
+                        ? '완료한 타이머 세션의 순공시간입니다.'
+                        : '날짜별로 저장된 총 학습시간입니다.'}
+                    </p>
                   </div>
                   <strong>{formatStudyTime(totalRecentMinutes)}</strong>
                 </div>
                 <div className="statistics-chart">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={recentStudyTime} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+                    <BarChart
+                      data={recentStudyTime}
+                      margin={{ top: 8, right: 4, bottom: 0, left: 0 }}
+                    >
                       <CartesianGrid stroke="#e9e5dd" vertical={false} />
-                      <XAxis dataKey="axisLabel" axisLine={false} tickLine={false} tick={{ fill: '#99958d', fontSize: 10 }} interval={2} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#99958d', fontSize: 10 }} tickFormatter={formatAxisMinutes} width={55} />
-                      <Tooltip cursor={{ fill: '#f7f2e8' }} content={<StudyTimeTooltip focus={timeView === 'focus'} />} />
-                      <Bar dataKey="totalMinutes" fill="#1c1c1a" radius={[5, 5, 0, 0]} maxBarSize={25} />
+                      <XAxis
+                        dataKey="axisLabel"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#99958d', fontSize: 10 }}
+                        interval={2}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#99958d', fontSize: 10 }}
+                        tickFormatter={formatAxisMinutes}
+                        width={55}
+                      />
+                      <Tooltip
+                        cursor={{ fill: '#f7f2e8' }}
+                        content={<StudyTimeTooltip focus={timeView === 'focus'} />}
+                      />
+                      <Bar
+                        dataKey="totalMinutes"
+                        fill={getViewColor(timeView)}
+                        radius={[5, 5, 0, 0]}
+                        maxBarSize={25}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </article>
 
-              <article className="statistics-card statistics-switchable-card">
+              <article
+                className="statistics-card statistics-switchable-card"
+                data-view={growthView}
+                style={getViewStyle(growthView)}
+              >
                 <StatisticsViewControls view={growthView} onChange={setGrowthView} />
                 <div className="statistics-card-heading">
                   <div>
-                    <h2>{growthView === 'focus' ? '목표 달성 추이' : '나의 성장 추이'} · {getViewLabel(growthView)}</h2>
-                    <p>{growthView === 'focus' ? '최근 30일 타이머 목표 달성률입니다.' : `최근 30일의 평균 이해도입니다. ${growthChange > 0 ? `처음보다 ${(growthChange).toFixed(1)}점 상승했어요.` : ''}`}</p>
+                    <div className="statistics-title-row">
+                      <h2>
+                        {growthView === 'focus'
+                          ? '순공 목표 달성 추이'
+                          : '나의 성장 추이'}
+                      </h2>
+                      <StatisticsViewBadge view={growthView} />
+                    </div>
+                    <p>
+                      {growthView === 'focus'
+                        ? '최근 30일 타이머 목표 달성률입니다.'
+                        : `최근 30일의 평균 이해도입니다. ${growthChange > 0 ? `처음보다 ${growthChange.toFixed(1)}점 상승했어요.` : ''}`}
+                    </p>
                   </div>
-                  <strong>{growthView === 'focus' ? `${Math.round(currentGrowthValue * 20)}%` : currentGrowthValue.toFixed(1)}</strong>
+                  <strong>
+                    {growthView === 'focus'
+                      ? `${Math.round(currentGrowthValue * 20)}%`
+                      : currentGrowthValue.toFixed(1)}
+                  </strong>
                 </div>
                 <div className="statistics-chart">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={growthStatistics} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+                    <AreaChart
+                      data={growthStatistics}
+                      margin={{ top: 8, right: 4, bottom: 0, left: 0 }}
+                    >
                       <defs>
-                        <linearGradient id="statisticsGrowthFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#d9942b" stopOpacity={0.24} />
-                          <stop offset="100%" stopColor="#d9942b" stopOpacity={0.02} />
+                        <linearGradient
+                          id={`statisticsGrowthFill-${growthView}`}
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="0%"
+                            stopColor={getViewColor(growthView)}
+                            stopOpacity={0.24}
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor={getViewColor(growthView)}
+                            stopOpacity={0.02}
+                          />
                         </linearGradient>
                       </defs>
                       <CartesianGrid stroke="#e9e5dd" vertical={false} />
-                      <XAxis dataKey="axisLabel" axisLine={false} tickLine={false} tick={{ fill: '#99958d', fontSize: 10 }} interval={6} />
-                      <YAxis domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} axisLine={false} tickLine={false} tick={{ fill: '#99958d', fontSize: 10 }} width={28} tickFormatter={(value) => growthView === 'focus' ? `${Number(value) * 20}%` : String(value)} />
-                      <Tooltip content={<UnderstandingTooltip focus={growthView === 'focus'} />} />
-                      <Area type="monotone" dataKey="averageUnderstanding" connectNulls stroke="#d9942b" strokeWidth={2.5} fill="url(#statisticsGrowthFill)" activeDot={{ r: 5, fill: '#1c1c1a' }} />
+                      <XAxis
+                        dataKey="axisLabel"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#99958d', fontSize: 10 }}
+                        interval={6}
+                      />
+                      <YAxis
+                        domain={[0, 5]}
+                        ticks={[0, 1, 2, 3, 4, 5]}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#99958d', fontSize: 10 }}
+                        width={28}
+                        tickFormatter={(value) =>
+                          growthView === 'focus'
+                            ? `${Number(value) * 20}%`
+                            : String(value)
+                        }
+                      />
+                      <Tooltip
+                        content={<UnderstandingTooltip focus={growthView === 'focus'} />}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="averageUnderstanding"
+                        connectNulls
+                        stroke={getViewColor(growthView)}
+                        strokeWidth={2.5}
+                        fill={`url(#statisticsGrowthFill-${growthView})`}
+                        activeDot={{ r: 5, fill: getViewColor(growthView) }}
+                      />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
               </article>
             </section>
 
-            <section className="statistics-card statistics-heatmap-card statistics-switchable-card">
+            <section
+              className="statistics-card statistics-heatmap-card statistics-switchable-card"
+              data-view={heatmapView}
+              style={getViewStyle(heatmapView)}
+            >
               <StatisticsViewControls view={heatmapView} onChange={setHeatmapView} />
               <div className="statistics-card-heading">
                 <div>
-                  <h2>학습 히트맵 · {getViewLabel(heatmapView)}</h2>
-                  <p>최근 15주의 날짜별 {heatmapView === 'focus' ? '순공 활동' : '학습 활동'}입니다.</p>
+                  <div className="statistics-title-row">
+                    <h2>학습 히트맵</h2>
+                    <StatisticsViewBadge view={heatmapView} />
+                  </div>
+                  <p>
+                    최근 15주의 날짜별{' '}
+                    {heatmapView === 'focus' ? '순공 활동' : '학습 활동'}입니다.
+                  </p>
                 </div>
                 <div className="statistics-heatmap-legend">
                   <span>적음</span>
-                  {[0, 1, 2, 3, 4].map((level) => <i key={level} data-level={level} />)}
+                  {[0, 1, 2, 3, 4].map((level) => (
+                    <i key={level} data-level={level} />
+                  ))}
                   <span>많음</span>
                 </div>
               </div>
-              <div className="statistics-heatmap-scroll">
+              <div
+                className="statistics-heatmap-scroll statistics-view-transition"
+                key={heatmapView}
+              >
                 <div className="statistics-heatmap-grid">
                   {heatmapWeeks.map((week, weekIndex) => (
                     <div className="statistics-heatmap-week" key={`week-${weekIndex}`}>
@@ -692,8 +922,14 @@ function StatisticsPage() {
                           <span className="statistics-heatmap-tooltip">
                             <strong>{day.dateLabel}</strong>
                             <span>분류 {getViewLabel(heatmapView)}</span>
-                            <span>{heatmapView === 'focus' ? '순공 시간' : '학습시간'} {formatStudyTime(day.totalMinutes)}</span>
-                            <span>{heatmapView === 'focus' ? '완료 세션' : '학습 기록'} {day.recordCount}개</span>
+                            <span>
+                              {heatmapView === 'focus' ? '순공 시간' : '학습시간'}{' '}
+                              {formatStudyTime(day.totalMinutes)}
+                            </span>
+                            <span>
+                              {heatmapView === 'focus' ? '완료 세션' : '학습 기록'}{' '}
+                              {day.recordCount}개
+                            </span>
                           </span>
                         </button>
                       ))}
@@ -702,25 +938,58 @@ function StatisticsPage() {
                 </div>
               </div>
               <div className="statistics-heatmap-summary">
-                <div><strong>{formatNumber(heatmapActiveDays)}</strong><span>활동한 날짜</span></div>
-                <div><strong>{formatNumber(calculateBestStreak(heatmapRecords))}일</strong><span>최고 연속 기록</span></div>
-                <div><strong>{formatNumber(heatmapTotalRecords)}개</strong><span>{heatmapView === 'focus' ? '완료 세션' : '전체 학습 기록'}</span></div>
-                <div><strong>{formatStudyTime(heatmapTotalMinutes)}</strong><span>{heatmapView === 'focus' ? '총 순공 시간' : '총 학습시간'}</span></div>
+                <div>
+                  <strong>{formatNumber(heatmapActiveDays)}</strong>
+                  <span>활동한 날짜</span>
+                </div>
+                <div>
+                  <strong>{formatNumber(calculateBestStreak(heatmapRecords))}일</strong>
+                  <span>최고 연속 기록</span>
+                </div>
+                <div>
+                  <strong>{formatNumber(heatmapTotalRecords)}개</strong>
+                  <span>{heatmapView === 'focus' ? '완료 세션' : '전체 학습 기록'}</span>
+                </div>
+                <div>
+                  <strong>{formatStudyTime(heatmapTotalMinutes)}</strong>
+                  <span>{heatmapView === 'focus' ? '총 순공 시간' : '총 학습시간'}</span>
+                </div>
               </div>
             </section>
 
-            <section className={`statistics-card statistics-subject-card statistics-switchable-card${subjectExpanded ? ' is-expanded' : ''}`}>
-              <StatisticsViewControls view={subjectView} onChange={(view) => { setSubjectView(view); setSubjectExpanded(false) }} />
+            <section
+              className={`statistics-card statistics-subject-card statistics-switchable-card${subjectExpanded ? ' is-expanded' : ''}`}
+              data-view={subjectView}
+              style={getViewStyle(subjectView)}
+            >
+              <StatisticsViewControls
+                view={subjectView}
+                onChange={(view) => {
+                  setSubjectView(view)
+                  setSubjectExpanded(false)
+                }}
+              />
               <div className="statistics-card-heading">
                 <div>
-                  <h2>과목별 공부시간 · {getViewLabel(subjectView)}</h2>
+                  <div className="statistics-title-row">
+                    <h2>과목별 공부시간</h2>
+                    <StatisticsViewBadge view={subjectView} />
+                  </div>
                   <p>최근 30일 동안 어떤 과목을 얼마나 공부했는지 비교합니다.</p>
                 </div>
                 <div className="statistics-subject-heading-actions">
                   <strong>{formatStudyTime(subjectTotalMinutes)}</strong>
                   {subjectStatistics.length > 6 && (
-                    <button type="button" className="statistics-expand-button" onClick={() => setSubjectExpanded((value) => !value)}>
-                      {subjectExpanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                    <button
+                      type="button"
+                      className="statistics-expand-button"
+                      onClick={() => setSubjectExpanded((value) => !value)}
+                    >
+                      {subjectExpanded ? (
+                        <Minimize2 size={15} />
+                      ) : (
+                        <Maximize2 size={15} />
+                      )}
                       {subjectExpanded ? '접기' : '전체보기'}
                     </button>
                   )}
@@ -728,18 +997,56 @@ function StatisticsPage() {
               </div>
 
               {subjectStatistics.length === 0 ? (
-                <div className="statistics-empty">이 분류에 표시할 학습 기록이 아직 없습니다.</div>
+                <div className="statistics-empty">
+                  이 분류에 표시할 학습 기록이 아직 없습니다.
+                </div>
               ) : (
                 <div className="statistics-subject-content">
                   <div className="statistics-subject-chart-scroll">
-                    <div className="statistics-subject-chart-inner" style={{ height: Math.max(235, visibleSubjectStatistics.length * 58) }}>
+                    <div
+                      className="statistics-subject-chart-inner"
+                      style={{
+                        height: Math.max(235, visibleSubjectStatistics.length * 58),
+                      }}
+                    >
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={visibleSubjectStatistics} layout="vertical" margin={{ top: 8, right: 28, bottom: 8, left: 10 }}>
+                        <BarChart
+                          data={visibleSubjectStatistics}
+                          layout="vertical"
+                          margin={{ top: 8, right: 28, bottom: 8, left: 10 }}
+                        >
                           <CartesianGrid stroke="#e9e5dd" horizontal={false} />
-                          <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#99958d', fontSize: 10 }} tickFormatter={formatAxisMinutes} />
-                          <YAxis type="category" dataKey="subject" axisLine={false} tickLine={false} tick={{ fill: '#6f6c65', fontSize: 11 }} tickFormatter={formatSubjectAxisLabel} width={130} />
-                          <Tooltip cursor={{ fill: '#f7f2e8' }} content={<SubjectTimeTooltip focus={subjectView === 'focus'} />} />
-                          <Bar dataKey="totalMinutes" fill="#1c1c1a" radius={[0, 5, 5, 0]} maxBarSize={24} />
+                          <XAxis
+                            type="number"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: '#99958d', fontSize: 10 }}
+                            tickFormatter={formatAxisMinutes}
+                          />
+                          <YAxis
+                            type="category"
+                            dataKey="subject"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: '#6f6c65', fontSize: 11 }}
+                            tickFormatter={formatSubjectAxisLabel}
+                            width={175}
+                          />
+                          <Tooltip
+                            cursor={{ fill: '#f7f2e8' }}
+                            content={
+                              <SubjectTimeTooltip focus={subjectView === 'focus'} />
+                            }
+                          />
+                          <Bar
+                            dataKey="totalMinutes"
+                            radius={[0, 5, 5, 0]}
+                            maxBarSize={24}
+                          >
+                            {visibleSubjectStatistics.map((subject) => (
+                              <Cell key={subject.subject} fill={subject.color} />
+                            ))}
+                          </Bar>
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -749,18 +1056,46 @@ function StatisticsPage() {
                     <table className="statistics-subject-table">
                       <thead>
                         <tr>
-                          <th>과목</th><th>기록 수</th><th>{subjectView === 'focus' ? '순공 시간' : '학습시간'}</th><th>학습 비율</th><th>{subjectView === 'focus' ? '목표 달성률' : '평균 이해도'}</th><th>분포</th>
+                          <th>과목</th>
+                          <th>기록 수</th>
+                          <th>{subjectView === 'focus' ? '순공 시간' : '학습시간'}</th>
+                          <th>학습 비율</th>
+                          <th>
+                            {subjectView === 'focus' ? '목표 달성률' : '평균 이해도'}
+                          </th>
+                          <th>분포</th>
                         </tr>
                       </thead>
                       <tbody>
                         {visibleSubjectStatistics.map((subject) => (
                           <tr key={subject.subject}>
-                            <td><strong title={subject.subject}>{subject.subject}</strong></td>
+                            <td>
+                              <strong
+                                className="statistics-subject-name"
+                                title={subject.subject}
+                              >
+                                <i style={{ backgroundColor: subject.color }} />
+                                {subject.subject}
+                              </strong>
+                            </td>
                             <td>{formatNumber(subject.recordCount)}개</td>
                             <td>{formatStudyTime(subject.totalMinutes)}</td>
                             <td>{subject.percentage.toFixed(1)}%</td>
-                            <td>{subjectView === 'focus' ? `${Math.round(subject.averageUnderstanding * 20)}%` : `${subject.averageUnderstanding.toFixed(1)} / 5`}</td>
-                            <td><div className="statistics-subject-progress"><span style={{ width: `${subject.percentage}%` }} /></div></td>
+                            <td>
+                              {subjectView === 'focus'
+                                ? `${Math.round(subject.averageUnderstanding * 20)}%`
+                                : `${subject.averageUnderstanding.toFixed(1)} / 5`}
+                            </td>
+                            <td>
+                              <div className="statistics-subject-progress">
+                                <span
+                                  style={{
+                                    width: `${subject.percentage}%`,
+                                    background: subject.color,
+                                  }}
+                                />
+                              </div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>

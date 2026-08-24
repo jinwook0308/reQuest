@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
 
 .statistics-page {
-  --statistics-background: #fbfaf7;
+  --statistics-background: var(--app-background, #fffdfa);
   --statistics-surface: #ffffff;
   --statistics-paper: #fffdf7;
   --statistics-border: #e6e2da;
@@ -13,7 +13,7 @@
 
   min-height: 100vh;
   padding: 42px 24px 80px;
-  background:#fafaf8;
+  background: var(--statistics-background);
   color: var(--statistics-text);
   font-family: 'Noto Sans KR', sans-serif;
 }
@@ -154,6 +154,12 @@
   box-shadow: 0 5px 18px rgba(46, 42, 33, 0.04);
 }
 
+.statistics-card[data-view] {
+  box-shadow:
+    inset 0 3px 0 var(--statistics-accent),
+    0 5px 18px rgba(46, 42, 33, 0.04);
+}
+
 .statistics-card-heading {
   display: flex;
   align-items: flex-start;
@@ -166,6 +172,38 @@
   margin: 0 0 5px;
   font-family: 'Gowun Batang', Georgia, serif;
   font-size: 20px;
+}
+
+.statistics-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-bottom: 5px;
+}
+
+.statistics-title-row h2 {
+  margin: 0;
+}
+
+.statistics-view-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  background: #fff;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: -0.1px;
+  white-space: nowrap;
+}
+
+.statistics-view-badge i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
 }
 
 .statistics-card-heading p {
@@ -260,22 +298,22 @@
 
 .statistics-heatmap-cell[data-level='1'],
 .statistics-heatmap-legend i[data-level='1'] {
-  background: #d6d2c9;
+  background: var(--statistics-heatmap-1);
 }
 
 .statistics-heatmap-cell[data-level='2'],
 .statistics-heatmap-legend i[data-level='2'] {
-  background: #aaa69d;
+  background: var(--statistics-heatmap-2);
 }
 
 .statistics-heatmap-cell[data-level='3'],
 .statistics-heatmap-legend i[data-level='3'] {
-  background: #68665f;
+  background: var(--statistics-heatmap-3);
 }
 
 .statistics-heatmap-cell[data-level='4'],
 .statistics-heatmap-legend i[data-level='4'] {
-  background: #1c1c1a;
+  background: var(--statistics-heatmap-4);
 }
 
 .statistics-heatmap-cell[data-future='true'] {
@@ -286,8 +324,24 @@
 .statistics-heatmap-cell:hover,
 .statistics-heatmap-cell:focus-visible {
   z-index: 5;
-  outline: 2px solid #d9942b;
+  outline: 2px solid var(--statistics-accent);
   outline-offset: 2px;
+}
+
+.statistics-view-transition {
+  animation: statistics-view-fade 240ms ease both;
+}
+
+@keyframes statistics-view-fade {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .statistics-heatmap-tooltip {
@@ -325,10 +379,8 @@
   transform: translate(-50%, -4px) rotate(45deg);
 }
 
-.statistics-heatmap-cell:hover
-  .statistics-heatmap-tooltip,
-.statistics-heatmap-cell:focus-visible
-  .statistics-heatmap-tooltip {
+.statistics-heatmap-cell:hover .statistics-heatmap-tooltip,
+.statistics-heatmap-cell:focus-visible .statistics-heatmap-tooltip {
   opacity: 1;
   transform: translate(-50%, 0);
 }
@@ -370,8 +422,7 @@
   overflow: hidden;
 }
 
-.statistics-subject-card
-  > .statistics-card-heading {
+.statistics-subject-card > .statistics-card-heading {
   margin: 0;
   padding: 23px 28px;
   border-bottom: 1px solid var(--statistics-border);
@@ -410,6 +461,23 @@
   color: var(--statistics-text);
 }
 
+.statistics-subject-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.statistics-subject-name i {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
 .statistics-subject-table tr:last-child td {
   border-bottom: 0;
 }
@@ -425,7 +493,6 @@
 .statistics-subject-progress span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #d9942b, #1c1c1a);
   border-radius: inherit;
 }
 
@@ -628,7 +695,13 @@
 }
 
 .statistics-subject-chart-inner {
-  min-width: 760px;
+  min-width: 820px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statistics-view-transition {
+    animation: none;
+  }
 }
 
 .statistics-subject-table-scroll {

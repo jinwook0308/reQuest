@@ -1,13 +1,5 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
-import {
-  Link,
-  useLocation,
-  useNavigate,
-} from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router'
 import {
   Bell,
   BookOpen,
@@ -15,6 +7,7 @@ import {
   LogOut,
   Menu,
   Search,
+  Settings,
   UserRound,
   X,
 } from 'lucide-react'
@@ -54,23 +47,14 @@ const navigationItems: NavigationItem[] = [
     path: '/statistics',
     activePaths: ['/statistics'],
   },
-  {
-    label: '가이드',
-    activePaths: ['/guide'],
-  },
 ]
 
-function isNavigationItemActive(
-  item: NavigationItem,
-  pathname: string,
-) {
+function isNavigationItemActive(item: NavigationItem, pathname: string) {
   if (item.path === '/') {
     return pathname === '/'
   }
 
-  return item.activePaths.some((activePath) =>
-    pathname.startsWith(activePath),
-  )
+  return item.activePaths.some((activePath) => pathname.startsWith(activePath))
 }
 
 function showPreparingMessage(featureName: string) {
@@ -108,7 +92,6 @@ function AppHeader() {
       ) {
         setIsProfileOpen(false)
       }
-
     }
 
     const handleEscape = (event: KeyboardEvent) => {
@@ -137,19 +120,13 @@ function AppHeader() {
       await logout()
       navigate('/login', { replace: true })
     } catch (error) {
-      window.alert(
-        error instanceof Error
-          ? error.message
-          : '로그아웃에 실패했습니다.',
-      )
+      window.alert(error instanceof Error ? error.message : '로그아웃에 실패했습니다.')
     } finally {
       setIsLoggingOut(false)
     }
   }
 
-  const profileName = user?.nickname
-    ? `${user.nickname}님`
-    : '학습자님'
+  const profileName = user?.nickname ? `${user.nickname}님` : '학습자님'
 
   return (
     <header className="app-header">
@@ -189,13 +166,8 @@ function AppHeader() {
         aria-label="주요 메뉴"
       >
         {navigationItems.map((item) => {
-          const isActive = isNavigationItemActive(
-            item,
-            location.pathname,
-          )
-          const className = `app-header-navigation-item ${
-            isActive ? 'is-active' : ''
-          }`
+          const isActive = isNavigationItemActive(item, location.pathname)
+          const className = `app-header-navigation-item ${isActive ? 'is-active' : ''}`
 
           if (item.path) {
             return (
@@ -261,21 +233,20 @@ function AppHeader() {
               <UserRound size={22} />
             </span>
             <span className="app-header-profile-name">{profileName}</span>
-            <ChevronDown
-              className={isProfileOpen ? 'is-open' : ''}
-              size={15}
-            />
+            <ChevronDown className={isProfileOpen ? 'is-open' : ''} size={15} />
           </button>
 
           {isProfileOpen && (
-            <div
-              id="app-header-profile-menu"
-              className="app-header-profile-menu"
-            >
+            <div id="app-header-profile-menu" className="app-header-profile-menu">
               <div className="app-header-profile-information">
                 <strong>{profileName}</strong>
                 <span>{user?.email}</span>
               </div>
+
+              <Link className="app-header-profile-link" to="/profile">
+                <Settings size={17} />
+                <span>개인정보 수정</span>
+              </Link>
 
               <button
                 type="button"
@@ -284,9 +255,7 @@ function AppHeader() {
                 onClick={() => void handleLogout()}
               >
                 <LogOut size={17} />
-                <span>
-                  {isLoggingOut ? '로그아웃 중...' : '로그아웃'}
-                </span>
+                <span>{isLoggingOut ? '로그아웃 중...' : '로그아웃'}</span>
               </button>
             </div>
           )}
